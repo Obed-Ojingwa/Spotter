@@ -197,4 +197,5 @@ def _job_detail(job: Job) -> dict:
         "certifications_required": job.certifications_required,
         "licenses_required": job.licenses_required,
         "expires_at": job.expires_at.isoformat() if job.expires_at else None,
+        
     }
