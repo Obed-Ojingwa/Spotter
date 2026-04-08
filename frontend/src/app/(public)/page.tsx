@@ -67,7 +67,7 @@ export default function HomePage() {
             Find Your Perfect Match
           </h1>
           <p className="text-red-100 text-lg mb-10 max-w-xl mx-auto">
-            SPOTTER uses intelligent matching to connect the right talent with the right opportunity — scored, verified, and certified.
+            First and Number One African Job Matching Platform.
           </p>
 
           {/* Search bar */}
@@ -102,7 +102,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Stats bar ────────────────────────────────────────── */}
-      <section className="bg-red-50 border-b border-red-100 py-6 px-4">
+      {/* <section className="bg-red-50 border-b border-red-100 py-6 px-4">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           {[
             { icon: Briefcase,  label: "Active Jobs",      value: "1,200+" },
@@ -117,7 +117,7 @@ export default function HomePage() {
             </div>
           ))}
         </div>
-      </section>
+      </section> */}
 
       {/* ── Job categories ───────────────────────────────────── */}
       <section className="py-14 px-4 max-w-5xl mx-auto">

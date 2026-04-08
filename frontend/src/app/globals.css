@@ -1,0 +1,46 @@
+/* /* // C:\Users\Melody\Documents\Spotter\frontend\src\app\globals.css */
+
+
+@import "tailwindcss";
+
+:root {
+  --spotter-red: #CC0000;
+  --spotter-red-dark: #990000;
+  --spotter-red-light: #FFEEEE;
+}
+
+@layer base {
+  body {
+    @apply text-gray-900 bg-gray-50;
+  }
+  a {
+    @apply transition-colors duration-150;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-red-700 hover:bg-red-800 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-50 text-red-700 font-semibold px-5 py-2.5 rounded-lg border border-red-300 transition-colors duration-150;
+  }
+  .btn-ghost {
+    @apply bg-transparent hover:bg-gray-100 text-gray-700 font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .input {
+    @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400;
+  }
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+  }
+  .badge-score-high {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800;
+  }
+  .badge-score-mid {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800;
+  }
+  .badge-score-low {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800;
+  }
+}

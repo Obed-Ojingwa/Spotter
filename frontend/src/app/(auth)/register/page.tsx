@@ -17,7 +17,7 @@ const ROLES = [
   { value: "seeker",  label: "Job Seeker",   icon: Briefcase,   desc: "Find your next role" },
   { value: "org",     label: "Organization", icon: Building2,   desc: "Hire top talent" },
   { value: "agent",   label: "Agent",        icon: Users,       desc: "Connect talent & earn" },
-  { value: "spotter", label: "Spotter",      icon: ShieldCheck, desc: "Review & approve matches" },
+  // { value: "spotter", label: "Spotter",      icon: ShieldCheck, desc: "Review & approve matches" },
 ];
 
 const schema = z.object({
