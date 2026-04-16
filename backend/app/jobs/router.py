@@ -1,0 +1,262 @@
+# C:\Users\Melody\Documents\Spotter\backend\app\jobs\router.py
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime, timezone, timedelta
+from app.database import get_db
+from app.deps import get_current_user, get_org, get_agent, get_admin
+from app.models import User, UserRole, Job, JobStatus, Organization, Agent, Payment, PaymentStatus, PaymentPurpose
+from app.jobs.search import index_job, remove_job, search_jobs
+
+router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+class JobCreate(BaseModel):
+    title: str
+    description: str
+    city: Optional[str] = None
+    state: Optional[str] = None
+    work_mode: Optional[str] = None
+    employment_type: Optional[str] = None
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    required_skills: list[str] = []
+    required_tech_stack: list[str] = []
+    required_experience_years: Optional[int] = None
+    required_education: Optional[str] = None
+    required_degree_class: Optional[str] = None
+    preferred_gender: Optional[str] = None
+    preferred_religion: Optional[str] = None
+    preferred_age_min: Optional[int] = None
+    preferred_age_max: Optional[int] = None
+    preferred_marital_status: Optional[str] = None
+    certifications_required: list[str] = []
+    licenses_required: list[str] = []
+
+
+@router.get("")
+async def list_jobs(
+    q: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    work_mode: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public job listing with filters.
+    Tries Meilisearch first for fast full-text search,
+    falls back to database LIKE queries if Meilisearch is unavailable.
+    """
+    # ── Try Meilisearch first ──────────────────────────────────────────────
+    meili_result = search_jobs(
+        query=q or "",
+        filters={"state": state, "work_mode": work_mode, "city": city},
+        page=page,
+        limit=limit,
+    )
+
+    if meili_result is not None:
+        # Meilisearch available — return its results directly
+        hits = meili_result.get("hits", [])
+
+        # Truncate description to avoid huge payloads for cards.
+        for hit in hits:
+            desc = hit.get("description") if isinstance(hit, dict) else None
+            if isinstance(desc, str) and desc:
+                hit["description"] = desc[:200] + ("..." if len(desc) > 200 else "")
+
+        return {
+            "page": page,
+            "limit": limit,
+            "source": "search",
+            "jobs": hits,
+        }
+
+    # ── Fall back to database ──────────────────────────────────────────────
+    stmt = select(Job).where(Job.status == JobStatus.ACTIVE)
+    if city:
+        stmt = stmt.where(Job.city.ilike(f"%{city}%"))
+    if state:
+        stmt = stmt.where(Job.state.ilike(f"%{state}%"))
+    if work_mode:
+        stmt = stmt.where(Job.work_mode == work_mode)
+    if q:
+        stmt = stmt.where(
+            or_(
+                Job.title.ilike(f"%{q}%"),
+                Job.description.ilike(f"%{q}%"),
+            )
+        )
+
+    stmt = stmt.order_by(Job.created_at.desc()).offset((page - 1) * limit).limit(limit)
+    result = await db.execute(stmt)
+    jobs = result.scalars().all()
+
+    return {
+        "page": page,
+        "limit": limit,
+        "source": "database",
+        "jobs": [_job_summary(j) for j in jobs],
+    }
+
+
+@router.get("/{job_id}")
+async def get_job(job_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Job).where(Job.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return _job_detail(job)
+
+
+@router.post("", status_code=201)
+async def create_job(
+    body: JobCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Org or Agent can post a job. Free quota or requires payment."""
+    if user.role not in (UserRole.ORG, UserRole.AGENT, UserRole.ADMIN, UserRole.SUPER_ADMIN):
+        raise HTTPException(status_code=403, detail="Only organizations and agents can post jobs")
+
+    org_id = None
+    agent_id = None
+    poster_type = user.role.value
+
+    if user.role == UserRole.ORG:
+        result = await db.execute(select(Organization).where(Organization.user_id == user.id))
+        org = result.scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization profile not found")
+
+        if org.free_posts_left > 0:
+            org.free_posts_left -= 1
+        else:
+            result = await db.execute(
+                select(Payment).where(
+                    Payment.payer_id == org.id,
+                    Payment.purpose == PaymentPurpose.ORG_JOB_POST,
+                    Payment.status == PaymentStatus.SUCCESS,
+                ).order_by(Payment.created_at.desc())
+            )
+            paid = result.first()
+            if not paid:
+                raise HTTPException(
+                    status_code=402,
+                    detail={"message": "Payment required to post more jobs", "amount": 500000, "purpose": "org_job_post"}
+                )
+        org_id = org.id
+
+    elif user.role == UserRole.AGENT:
+        result = await db.execute(select(Agent).where(Agent.user_id == user.id))
+        agent = result.scalar_one_or_none()
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent profile not found")
+        agent_id = agent.id
+
+        # Award agent 2 points for posting a job
+        from app.models import AgentPoint
+        agent.points += 2.0
+        db.add(AgentPoint(
+            agent_id=agent.id,
+            delta=2.0,
+            reason="job_posted",
+        ))
+
+    job = Job(
+        **body.model_dump(),
+        org_id=org_id,
+        agent_id=agent_id,
+        poster_type=poster_type,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    # Index in Meilisearch (non-blocking — fails silently if unavailable)
+    index_job(job)
+
+    return _job_detail(job)
+
+
+@router.delete("/{job_id}")
+async def delete_job(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Job).where(Job.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if user.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
+        pass
+    elif user.role == UserRole.ORG:
+        result = await db.execute(select(Organization).where(Organization.user_id == user.id))
+        org = result.scalar_one_or_none()
+        if not org or job.org_id != org.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    job.status = JobStatus.CLOSED
+    await db.commit()
+
+    # Remove from search index
+    remove_job(job_id)
+
+    return {"message": "Job closed"}
+
+
+@router.post("/admin/reindex", tags=["admin"])
+async def reindex_all_jobs(
+    user: User = Depends(get_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin-only: reindex all active jobs in Meilisearch."""
+    from app.jobs.search import reindex_all
+    result = await db.execute(select(Job).where(Job.status == JobStatus.ACTIVE))
+    jobs = result.scalars().all()
+    count = reindex_all(jobs)
+    return {"message": f"Reindexed {count} jobs"}
+
+
+def _job_summary(job) -> dict:
+    status = job.status.value if hasattr(job.status, "value") else job.status
+    description = (job.description or "") if hasattr(job, "description") else ""
+    description = description[:200] + ("..." if len(description) > 200 else "")
+    return {
+        "id":               str(job["id"]) if isinstance(job, dict) else str(job.id),
+        "title":            job.get("title") if isinstance(job, dict) else job.title,
+        "city":             job.get("city") if isinstance(job, dict) else job.city,
+        "state":            job.get("state") if isinstance(job, dict) else job.state,
+        "work_mode":        job.get("work_mode") if isinstance(job, dict) else job.work_mode,
+        "employment_type":  job.get("employment_type") if isinstance(job, dict) else job.employment_type,
+        "salary_min":       job.get("salary_min") if isinstance(job, dict) else job.salary_min,
+        "salary_max":       job.get("salary_max") if isinstance(job, dict) else job.salary_max,
+        "required_skills":  job.get("required_skills", []) if isinstance(job, dict) else job.required_skills,
+        "status":           job.get("status", "active") if isinstance(job, dict) else status,
+        "created_at":       job.get("created_at", "") if isinstance(job, dict) else job.created_at.isoformat(),
+        "description":      job.get("description") if isinstance(job, dict) else description,
+    }
+
+
+def _job_detail(job: Job) -> dict:
+    return {
+        **_job_summary(job),
+        "description":              job.description,
+        "required_tech_stack":      job.required_tech_stack,
+        "required_experience_years":job.required_experience_years,
+        "required_education":       job.required_education,
+        "required_degree_class":    job.required_degree_class,
+        "certifications_required":  job.certifications_required,
+        "licenses_required":        job.licenses_required,
+        "expires_at":               job.expires_at.isoformat() if job.expires_at else None,
+    }
