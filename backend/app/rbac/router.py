@@ -24,6 +24,39 @@ from app.rbac.models import (
 
 router = APIRouter(prefix="/rbac", tags=["rbac"])
 
+SUPER_ADMIN_SLUG = "super_admin"
+EXECUTIVE_ADMIN_SLUG = "executive_admin"
+
+
+async def _user_has_role(user_id: str, role_slug: str, db: AsyncSession) -> bool:
+    """True if user has the role assigned (primary or secondary)."""
+    result = await db.execute(
+        select(UserRole)
+        .join(Role, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == user_id, Role.slug == role_slug)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _assert_can_modify_target(actor: User, target_user_id: str, db: AsyncSession) -> None:
+    """
+    Extra hardening on top of hierarchy rules:
+    - Only Super Admin may modify any user with super_admin role.
+    - Executive Admin may not modify any user with super_admin or executive_admin role.
+    """
+    actor_is_super_admin = await _user_has_role(str(actor.id), SUPER_ADMIN_SLUG, db)
+    if actor_is_super_admin:
+        return
+
+    # Nobody else can touch Super Admins
+    if await _user_has_role(target_user_id, SUPER_ADMIN_SLUG, db):
+        raise HTTPException(status_code=403, detail="You cannot modify a Super Admin user")
+
+    actor_primary = await get_user_primary_role(str(actor.id), db)
+    if actor_primary and actor_primary.slug == EXECUTIVE_ADMIN_SLUG:
+        if await _user_has_role(target_user_id, EXECUTIVE_ADMIN_SLUG, db):
+            raise HTTPException(status_code=403, detail="You cannot modify an Executive Admin user")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ROLE MANAGEMENT
@@ -225,6 +258,7 @@ async def assign_role_to_user(
     actor: User = Depends(require_permission("assign_role")),
     db: AsyncSession = Depends(get_db),
 ):
+    await _assert_can_modify_target(actor, user_id, db)
     await assert_higher_than(actor, user_id, db)
 
     target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
@@ -234,6 +268,12 @@ async def assign_role_to_user(
     role = (await db.execute(select(Role).where(Role.slug == body.role_slug))).scalar_one_or_none()
     if not role:
         raise HTTPException(status_code=404, detail=f"Role '{body.role_slug}' not found")
+
+    # Only Super Admin can assign Super Admin
+    if body.role_slug == SUPER_ADMIN_SLUG:
+        actor_is_super_admin = await _user_has_role(str(actor.id), SUPER_ADMIN_SLUG, db)
+        if not actor_is_super_admin:
+            raise HTTPException(status_code=403, detail="Only Super Admin can assign the Super Admin role")
 
     # Specific role assignment checks
     specific_perm_map = {
@@ -290,11 +330,18 @@ async def remove_role_from_user(
     actor: User = Depends(require_permission("remove_role")),
     db: AsyncSession = Depends(get_db),
 ):
+    await _assert_can_modify_target(actor, user_id, db)
     await assert_higher_than(actor, user_id, db)
 
     role = (await db.execute(select(Role).where(Role.slug == body.role_slug))).scalar_one_or_none()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
+
+    # Only Super Admin can remove Super Admin
+    if body.role_slug == SUPER_ADMIN_SLUG:
+        actor_is_super_admin = await _user_has_role(str(actor.id), SUPER_ADMIN_SLUG, db)
+        if not actor_is_super_admin:
+            raise HTTPException(status_code=403, detail="Only Super Admin can remove the Super Admin role")
 
     await db.execute(
         delete(UserRole).where(

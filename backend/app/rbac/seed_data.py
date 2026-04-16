@@ -140,7 +140,9 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
 
     "executive_admin": [
         "create_user", "read_user", "update_user", "activate_user",
+        "assign_role",
         "assign_admin_role", "assign_agent_role", "assign_spotter_role",
+        "assign_executive_role",
         "remove_role", "view_analytics", "export_reports",
         "manage_agents", "approve_org",
         "view_applications", "view_payments",
