@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from pydantic import BaseModel
 from app.database import get_db
 from app.deps import get_agent
-from app.models import User, Agent, AgentPoint, Referral, Job, Payment, PaymentPurpose, PaymentStatus
+from app.models import User, Agent, AgentPoint, Referral, Job, Payment, PaymentPurpose, PaymentStatus, Organization
 from app.config import settings
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -161,3 +161,30 @@ async def get_referrals(
             for r, a in rows
         ]
     }
+
+
+@router.get("/orgs")
+async def list_organisations_for_agent(
+    q: str | None = None,
+    user: User = Depends(get_agent),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List organisations for agent job posting selection.
+    Agents can post jobs on behalf of an organisation; this endpoint provides IDs/names.
+    """
+    stmt = select(Organization).order_by(Organization.created_at.desc())
+    if q:
+        stmt = stmt.where(Organization.name.ilike(f"%{q}%"))
+    result = await db.execute(stmt.limit(100))
+    orgs = result.scalars().all()
+    return [
+        {
+            "id": str(o.id),
+            "name": o.name,
+            "city": o.city,
+            "state": o.state,
+            "is_verified": o.is_verified,
+        }
+        for o in orgs
+    ]

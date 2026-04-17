@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -10,7 +10,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Plus, X, Loader2, Briefcase, Star } from "lucide-react";
 import toast from "react-hot-toast";
-import { jobsApi } from "@/lib/api";
+import { agentApi, jobsApi } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import Navbar from "@/components/layout/Navbar";
 
@@ -27,6 +27,7 @@ const EMPLOYMENT_TYPES = ["full-time", "part-time", "contract", "internship"];
 
 // ── Schema ─────────────────────────────────────────────────────────────────
 const schema = z.object({
+  org_id:           z.string().min(1, "Select an organisation"),
   title:            z.string().min(3, "Job title is required"),
   description:      z.string().min(20, "Write at least 20 characters"),
   city:             z.string().optional(),
@@ -39,6 +40,14 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
+interface OrgOption {
+  id: string;
+  name: string;
+  city?: string;
+  state?: string;
+  is_verified?: boolean;
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function AgentPostJobPage() {
   const router               = useRouter();
@@ -46,9 +55,20 @@ export default function AgentPostJobPage() {
 
   const [skills,    setSkills]    = useState<string[]>([]);
   const [techStack, setTechStack] = useState<string[]>([]);
+  const [orgs, setOrgs] = useState<OrgOption[]>([]);
+  const [orgsLoading, setOrgsLoading] = useState(true);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
     useForm<FormData>({ resolver: zodResolver(schema) });
+
+  useEffect(() => {
+    if (!isLoggedIn() || user?.role !== "agent") return;
+    setOrgsLoading(true);
+    agentApi.listOrgs()
+      .then((r) => setOrgs(r.data ?? []))
+      .catch(() => setOrgs([]))
+      .finally(() => setOrgsLoading(false));
+  }, [isLoggedIn, user]);
 
   async function onSubmit(data: FormData) {
     if (!isLoggedIn() || user?.role !== "agent") {
@@ -106,6 +126,19 @@ export default function AgentPostJobPage() {
             {/* Basic info */}
             <div className="card space-y-4">
               <SectionHeader step="1" title="Job Details" />
+
+              <Field label="Organisation *" error={errors.org_id?.message}>
+                <select {...register("org_id")} className="input" disabled={orgsLoading}>
+                  <option value="">
+                    {orgsLoading ? "Loading organisations..." : "Select organisation"}
+                  </option>
+                  {orgs.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}{o.city || o.state ? ` — ${[o.city, o.state].filter(Boolean).join(", ")}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
               <Field label="Job Title *" error={errors.title?.message}>
                 <input {...register("title")} className="input"

@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 interface Job {
   id: string;
   title: string;
+  poster_type?: string;
+  agent_id?: string | null;
   city?: string;
   state?: string;
   work_mode?: string;
@@ -200,6 +202,11 @@ function JobRow({
             statusCls[job.status] ?? "bg-gray-100 text-gray-500")}>
             {job.status}
           </span>
+          {job.poster_type === "agent" && (
+            <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-100">
+              Posted by Agent
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap gap-3 text-sm text-gray-500">
           {(job.city || job.state) && (

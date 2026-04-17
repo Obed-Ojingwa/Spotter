@@ -17,6 +17,9 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 class JobCreate(BaseModel):
     title: str
     description: str
+    # When an Agent posts a job on behalf of an organisation,
+    # they must provide the organisation id here.
+    org_id: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     work_mode: Optional[str] = None
@@ -159,6 +162,14 @@ async def create_job(
             raise HTTPException(status_code=404, detail="Agent profile not found")
         agent_id = agent.id
 
+        # Agent must attach a target organisation for the job.
+        if not body.org_id:
+            raise HTTPException(status_code=400, detail="org_id is required when an agent posts a job")
+        org = (await db.execute(select(Organization).where(Organization.id == body.org_id))).scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        org_id = org.id
+
         # Award agent 2 points for posting a job
         from app.models import AgentPoint
         agent.points += 2.0
@@ -169,7 +180,7 @@ async def create_job(
         ))
 
     job = Job(
-        **body.model_dump(),
+        **body.model_dump(exclude={"org_id"}),
         org_id=org_id,
         agent_id=agent_id,
         poster_type=poster_type,
@@ -235,6 +246,9 @@ def _job_summary(job) -> dict:
     return {
         "id":               str(job["id"]) if isinstance(job, dict) else str(job.id),
         "title":            job.get("title") if isinstance(job, dict) else job.title,
+        "org_id":           job.get("org_id") if isinstance(job, dict) else (str(job.org_id) if job.org_id else None),
+        "agent_id":         job.get("agent_id") if isinstance(job, dict) else (str(job.agent_id) if job.agent_id else None),
+        "poster_type":      job.get("poster_type") if isinstance(job, dict) else getattr(job, "poster_type", None),
         "city":             job.get("city") if isinstance(job, dict) else job.city,
         "state":            job.get("state") if isinstance(job, dict) else job.state,
         "work_mode":        job.get("work_mode") if isinstance(job, dict) else job.work_mode,

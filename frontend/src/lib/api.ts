@@ -104,6 +104,7 @@ export const agentApi = {
   getDashboard:   ()              => api.get("/agent/dashboard"),
   getPointsHistory: ()            => api.get("/agent/points/history"),
   getReferrals:   ()              => api.get("/agent/referrals"),
+  listOrgs:       (params?: object) => api.get("/agent/orgs", { params }),
   convertPoints:  (data: object) => api.post("/agent/points/convert", data),
 };
 

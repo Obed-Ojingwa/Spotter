@@ -32,6 +32,8 @@ interface OrgProfile {
 interface Job {
   id: string;
   title: string;
+  poster_type?: string;
+  agent_id?: string | null;
   city?: string;
   state?: string;
   work_mode?: string;
@@ -290,6 +292,11 @@ function OrgJobRow({
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
           <StatusBadge status={job.status} />
+          {job.poster_type === "agent" && (
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+              Posted by Agent
+            </span>
+          )}
           <span
             className={cn(
               "text-[11px] font-bold px-2 py-0.5 rounded-full border",

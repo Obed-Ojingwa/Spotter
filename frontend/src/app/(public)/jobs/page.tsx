@@ -17,6 +17,9 @@ interface Job {
   id: string;
   title: string;
   description?: string;
+  poster_type?: string;
+  agent_id?: string | null;
+  org_id?: string | null;
   city?: string;
   state?: string;
   work_mode?: string;
@@ -336,6 +339,11 @@ function JobCard({ job }: { job: Job }) {
           {job.employment_type && (
             <span className="text-xs px-2.5 py-0.5 rounded-full font-medium capitalize bg-gray-100 text-gray-600">
               {job.employment_type}
+            </span>
+          )}
+          {job.poster_type === "agent" && (
+            <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-100">
+              Posted by Agent
             </span>
           )}
         </div>

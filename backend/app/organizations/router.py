@@ -116,6 +116,8 @@ async def list_org_jobs(
             {
                 "id": str(j.id),
                 "title": j.title,
+                "poster_type": j.poster_type,
+                "agent_id": str(j.agent_id) if j.agent_id else None,
                 "city": j.city,
                 "state": j.state,
                 "work_mode": j.work_mode,
