@@ -299,6 +299,19 @@ async def assign_role_to_user(
         )
     )).scalar_one_or_none()
     if existing:
+        # Allow switching primary role even if already assigned
+        if body.is_primary and not existing.is_primary:
+            existing_primary = (await db.execute(
+                select(UserRole).where(
+                    UserRole.user_id == user_id,
+                    UserRole.is_primary == True,
+                )
+            )).scalar_one_or_none()
+            if existing_primary:
+                existing_primary.is_primary = False
+            existing.is_primary = True
+            await db.commit()
+            return {"message": f"Role '{role.name}' set as primary", "user_id": user_id}
         return {"message": "Role already assigned"}
 
     # If setting as primary, clear previous primary

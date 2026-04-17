@@ -92,8 +92,8 @@ export default function OrgBillingPage() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100/80">
+        <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
 
           {/* Header */}
           <div className="flex items-center gap-4">
@@ -135,33 +135,39 @@ export default function OrgBillingPage() {
           {/* Purchase options */}
           <div className="space-y-4">
             <h2 className="font-bold text-gray-900 text-lg">Buy More Credits</h2>
+            <div className="grid gap-4 md:grid-cols-1">
             {PLANS.map((plan) => {
               const Icon = plan.icon;
               return (
-                <div key={plan.id} className="card flex flex-col sm:flex-row gap-5">
-                  <div className="bg-red-50 rounded-xl p-4 flex items-center justify-center shrink-0 sm:w-16 sm:h-16">
-                    <Icon size={24} className="text-red-700" />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-bold text-gray-900">{plan.label}</h3>
-                        <p className="text-sm text-gray-500 mt-0.5">{plan.desc}</p>
-                      </div>
-                      <p className="text-2xl font-black text-red-700 shrink-0">{plan.price}</p>
+                <div
+                  key={plan.id}
+                  className="card flex flex-col sm:flex-row gap-5 border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="flex sm:flex-col items-center gap-3 sm:items-stretch shrink-0">
+                    <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center border border-red-100">
+                      <Icon size={26} className="text-red-700" />
                     </div>
-                    <ul className="space-y-1">
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-lg">{plan.label}</h3>
+                        <p className="text-sm text-gray-500 mt-1 leading-relaxed">{plan.desc}</p>
+                      </div>
+                      <p className="text-2xl font-black text-red-700 shrink-0 tabular-nums">{plan.price}</p>
+                    </div>
+                    <ul className="space-y-2">
                       {plan.perks.map((perk) => (
-                        <li key={perk} className="flex items-center gap-2 text-sm text-gray-600">
-                          <CheckCircle size={13} className="text-green-500 shrink-0" />
-                          {perk}
+                        <li key={perk} className="flex items-start gap-2 text-sm text-gray-600">
+                          <CheckCircle size={15} className="text-green-500 shrink-0 mt-0.5" />
+                          <span>{perk}</span>
                         </li>
                       ))}
                     </ul>
                     <button
                       onClick={() => handlePurchase(plan.id)}
                       disabled={paying === plan.id}
-                      className="btn-primary text-sm flex items-center gap-2 w-full sm:w-auto justify-center mt-3"
+                      className="btn-primary text-sm flex items-center justify-center gap-2 w-full sm:w-auto min-h-[42px] mt-1"
                     >
                       {paying === plan.id
                         ? <Loader2 size={15} className="animate-spin" />
@@ -173,16 +179,22 @@ export default function OrgBillingPage() {
                 </div>
               );
             })}
+            </div>
           </div>
 
           {/* Payment note */}
-          <div className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-500">
+          <div className="flex items-start gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm text-gray-600 shadow-sm">
             <Lock size={15} className="shrink-0 mt-0.5 text-gray-400" />
-            <p>
-              Payments are processed securely via Paystack. You will be redirected to their
-              checkout page and returned here after completion.
-              In dev mode, payments auto-approve instantly.
-            </p>
+            <div className="space-y-1">
+              <p>
+                Payments are processed securely via Paystack. You will be redirected to their
+                checkout page and returned here after completion.
+              </p>
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                <strong className="font-semibold">Development:</strong> if Paystack keys are not set, you will
+                open a mock checkout page — click &quot;Approve Payment&quot; to complete the flow without a real charge.
+              </p>
+            </div>
           </div>
 
         </div>

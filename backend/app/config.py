@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     MEILI_URL: str = "http://localhost:7700"
     MEILI_MASTER_KEY: str = "spotter_meili_key"
 
+    # ── Paystack payments ──────────────────────────────────────────────────
+    # Add your real Paystack keys in `backend/.env`:
+    #   PAYSTACK_SECRET_KEY=sk_live_...
+    #   PAYSTACK_PUBLIC_KEY=pk_live_...
+    #
+    # If `PAYSTACK_SECRET_KEY` is empty OR left as the placeholder
+    # (`sk_test_your_key_here`), the backend will automatically use a
+    # mock checkout URL (`/payment/mock`) and auto-approve verification.
     PAYSTACK_SECRET_KEY: str = ""
     PAYSTACK_PUBLIC_KEY: str = ""
 

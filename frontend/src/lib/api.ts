@@ -78,6 +78,12 @@ export const jobsApi = {
 export const seekerApi = {
   getProfile:    ()              => api.get("/seeker/profile"),
   updateProfile: (data: object) => api.put("/seeker/profile", data),
+  /** PDF or Word, max 5MB — uses multipart/form-data */
+  uploadCv: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post("/seeker/upload-cv", form);
+  },
   getMatches:    ()              => api.get("/matching/my-matches"),
   triggerMatch:  (job_id: string) => api.post("/matching/trigger", { job_id }),
   getApplications: ()            => api.get("/applications/mine"),
@@ -87,6 +93,8 @@ export const seekerApi = {
 export const orgApi = {
   getProfile:    ()              => api.get("/org/profile"),
   updateProfile: (data: object) => api.put("/org/profile", data),
+  listJobs:      (params?: object) => api.get("/org/jobs", { params }),
+  getJobMatchCounts: () => api.get("/matching/org/job-match-counts"),
   getCandidates: (job_id: string) =>
     api.get(`/matching/job/${job_id}/candidates`),
 };

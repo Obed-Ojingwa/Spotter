@@ -10,8 +10,7 @@ import {
   ArrowLeft, Loader2, Search, Filter
 } from "lucide-react";
 import toast from "react-hot-toast";
-import api from "@/lib/api";
-import { jobsApi } from "@/lib/api";
+import { jobsApi, orgApi } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import Navbar from "@/components/layout/Navbar";
 import { cn } from "@/lib/utils";
@@ -48,7 +47,7 @@ export default function OrgJobsPage() {
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/jobs", { params: { limit: 50 } });
+      const res = await orgApi.listJobs({ limit: 50, page: 1 });
       setJobs(res.data.jobs);
     } catch {
       toast.error("Failed to load jobs");

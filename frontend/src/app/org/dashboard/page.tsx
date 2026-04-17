@@ -47,6 +47,7 @@ export default function OrgDashboard() {
 
   const [profile, setProfile] = useState<OrgProfile | null>(null);
   const [jobs,    setJobs]    = useState<Job[]>([]);
+  const [matchCounts, setMatchCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   // Auth guard
@@ -59,11 +60,13 @@ export default function OrgDashboard() {
     if (!isLoggedIn() || user?.role !== "org") return;
     Promise.all([
       api.get("/org/profile"),
-      api.get("/jobs", { params: { limit: 5 } }),
+      orgApi.listJobs({ limit: 5, page: 1 }),
+      orgApi.getJobMatchCounts().catch(() => ({ data: { counts: {} as Record<string, number> } })),
     ])
-      .then(([profileRes, jobsRes]) => {
+      .then(([profileRes, jobsRes, countsRes]) => {
         setProfile(profileRes.data);
-        setJobs(jobsRes.data.jobs);
+        setJobs(jobsRes.data.jobs ?? []);
+        setMatchCounts(countsRes.data?.counts ?? {});
       })
       .catch(() => toast.error("Failed to load dashboard"))
       .finally(() => setLoading(false));
@@ -201,6 +204,7 @@ export default function OrgDashboard() {
                     <OrgJobRow
                       key={job.id}
                       job={job}
+                      matchCount={matchCounts[job.id] ?? 0}
                       onClose={() => handleCloseJob(job.id)}
                     />
                   ))}
@@ -265,9 +269,10 @@ export default function OrgDashboard() {
 
 // ── OrgJobRow ──────────────────────────────────────────────────────────────
 function OrgJobRow({
-  job, onClose,
+  job, matchCount, onClose,
 }: {
   job: Job;
+  matchCount: number;
   onClose: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -285,6 +290,17 @@ function OrgJobRow({
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
           <StatusBadge status={job.status} />
+          <span
+            className={cn(
+              "text-[11px] font-bold px-2 py-0.5 rounded-full border",
+              matchCount > 0
+                ? "bg-red-50 text-red-700 border-red-200"
+                : "bg-gray-50 text-gray-400 border-gray-200"
+            )}
+            title="Approved matches (revealed to you)"
+          >
+            {matchCount} match{matchCount !== 1 ? "es" : ""}
+          </span>
         </div>
         <p className="text-sm text-gray-500 mt-1 flex items-center gap-3 flex-wrap">
           {(job.city || job.state) && (

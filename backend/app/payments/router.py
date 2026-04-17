@@ -26,6 +26,8 @@ async def paystack_initialize(email: str, amount: int, reference: str, metadata:
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{PAYSTACK_BASE}/transaction/initialize",
+            # Configure this via `backend/.env`:
+            #   PAYSTACK_SECRET_KEY=sk_live_...
             headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"},
             json={
                 "email": email,
@@ -46,6 +48,8 @@ async def paystack_verify(reference: str) -> dict:
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{PAYSTACK_BASE}/transaction/verify/{reference}",
+            # Configure this via `backend/.env`:
+            #   PAYSTACK_SECRET_KEY=sk_live_...
             headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"},
         )
         return resp.json()
@@ -145,6 +149,8 @@ async def verify_payment(
     if not settings.PAYSTACK_SECRET_KEY or settings.PAYSTACK_SECRET_KEY.startswith("sk_test_your"):
         payment.status = PaymentStatus.SUCCESS
         payment.paid_at = datetime.now(timezone.utc)
+        # Record a mock provider ref for audit/debug.
+        payment.provider_ref = f"mock-{reference}"
         await db.commit()
         return {"status": "success", "message": "Payment verified (dev mode)"}
 

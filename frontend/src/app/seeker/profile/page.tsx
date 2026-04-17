@@ -8,7 +8,7 @@ import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { Loader2, Plus, X, ArrowLeft, Save, CheckCircle } from "lucide-react";
+import { Loader2, Plus, X, ArrowLeft, Save, CheckCircle, FileText, Upload, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { seekerApi } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
@@ -67,6 +67,8 @@ export default function SeekerProfilePage() {
   const [saving,    setSaving]    = useState(false);
   const [loading,   setLoading]   = useState(true);
   const [complete,  setComplete]  = useState(false);
+  const [cvUrl,     setCvUrl]     = useState<string | null>(null);
+  const [cvUploading, setCvUploading] = useState(false);
 
   // Auth guard
   useEffect(() => {
@@ -111,10 +113,42 @@ export default function SeekerProfilePage() {
         setLicenses(d.licenses ?? []);
         setExperience(d.work_experience ?? []);
         setComplete(d.profile_complete);
+        setCvUrl(d.cv_url ?? null);
       })
       .catch(() => toast.error("Could not load profile"))
       .finally(() => setLoading(false));
   }, [isLoggedIn, user, reset]);
+
+  async function handleCvChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const okTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    if (!okTypes.includes(file.type)) {
+      toast.error("Please upload a PDF or Word document (.pdf, .doc, .docx).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File must be 5 MB or smaller.");
+      return;
+    }
+    setCvUploading(true);
+    try {
+      const res = await seekerApi.uploadCv(file);
+      const url = res.data?.cv_url as string | undefined;
+      if (url) setCvUrl(url);
+      toast.success("CV uploaded successfully.");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "CV upload failed.");
+    } finally {
+      setCvUploading(false);
+    }
+  }
 
   async function onSubmit(data: FormData) {
     setSaving(true);
@@ -252,8 +286,47 @@ export default function SeekerProfilePage() {
               </div>
             </Section>
 
+            {/* ── CV / Resume ──────────────────────────────── */}
+            <Section title="CV / Resume" step="4">
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500">
+                  Upload your CV so recruiters can review your background. PDF or Word, max 5 MB.
+                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <label className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:border-red-300 hover:text-red-700 cursor-pointer transition-colors">
+                    <Upload size={16} />
+                    {cvUploading ? "Uploading…" : "Choose file"}
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      className="hidden"
+                      disabled={cvUploading}
+                      onChange={handleCvChange}
+                    />
+                  </label>
+                  {cvUrl && (
+                    <a
+                      href={`${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "")}${cvUrl}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-700 hover:underline"
+                    >
+                      <FileText size={15} />
+                      View current CV
+                      <ExternalLink size={12} className="opacity-60" />
+                    </a>
+                  )}
+                </div>
+                {!cvUrl && !cvUploading && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    No CV on file yet — upload one to strengthen your applications.
+                  </p>
+                )}
+              </div>
+            </Section>
+
             {/* ── Section 4: Skills ─────────────────────────── */}
-            <Section title="Skills & Tech Stack" step="4">
+            <Section title="Skills & Tech Stack" step="5">
               <div className="space-y-5">
                 <TagInput
                   label="Hard Skills *"
@@ -288,13 +361,13 @@ export default function SeekerProfilePage() {
               </div>
             </Section>
 
-            {/* ── Section 5: Work Experience ────────────────── */}
-            <Section title="Work Experience" step="5">
+            {/* ── Section 6: Work Experience ────────────────── */}
+            <Section title="Work Experience" step="6">
               <WorkExperienceEditor value={experience} onChange={setExperience} />
             </Section>
 
-            {/* ── Section 6: Preferences ────────────────────── */}
-            <Section title="Job Preferences" step="6">
+            {/* ── Section 7: Preferences ────────────────────── */}
+            <Section title="Job Preferences" step="7">
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="Work Mode Preference *" error={errors.work_mode?.message}>
                   <select {...register("work_mode")} className="input">

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel
 from app.database import get_db
 from app.deps import get_current_user, get_seeker, get_org, get_admin
 from app.models import (
     User, JobSeeker, Job, Match, MatchStatus, MatchingWeight,
-    Payment, PaymentStatus, PaymentPurpose
+    Payment, PaymentStatus, PaymentPurpose, Organization,
 )
 from app.matching.engine import run_match
 import uuid
@@ -170,7 +170,6 @@ async def get_job_candidates(
     - Score < 90%: full details visible (max 2 shown for free orgs)
     - Score >= 90%: first 2 fully visible, rest blurred until payment
     """
-    from app.models import Organization
     result = await db.execute(select(Organization).where(Organization.user_id == user.id))
     org = result.scalar_one_or_none()
     if not org:
@@ -255,6 +254,35 @@ async def get_job_candidates(
         "unlocked": has_unlocked,
         "unlock_required": premium_count > 2 and not has_unlocked,
         "candidates": candidates,
+    }
+
+
+@router.get("/org/job-match-counts")
+async def org_job_match_counts(
+    user: User = Depends(get_org),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns count of revealed (Spotter-approved) matches per job for this organisation.
+    Used for org dashboard badges.
+    """
+    result = await db.execute(select(Organization).where(Organization.user_id == user.id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    result = await db.execute(
+        select(Match.job_id, func.count(Match.id))
+        .join(Job, Job.id == Match.job_id)
+        .where(
+            Job.org_id == org.id,
+            Match.status == MatchStatus.REVEALED,
+        )
+        .group_by(Match.job_id)
+    )
+    rows = result.all()
+    return {
+        "counts": {str(jid): count for jid, count in rows},
     }
 
 

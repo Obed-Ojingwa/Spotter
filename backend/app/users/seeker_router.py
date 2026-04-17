@@ -6,8 +6,91 @@ from typing import Optional
 from app.database import get_db
 from app.deps import get_seeker
 from app.models import User, JobSeeker
+import os
+import uuid as uuid_lib
+from fastapi import UploadFile, File
+
 
 router = APIRouter(prefix="/seeker", tags=["seeker"])
+
+
+ALLOWED_CV_TYPES = {"application/pdf", "application/msword",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+ALLOWED_IMG_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_CV_MB   = 5
+MAX_IMG_MB  = 2
+
+
+@router.post("/upload-cv")
+async def upload_cv(
+    file: UploadFile = File(...),
+    user: User = Depends(get_seeker),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a CV (PDF or Word). Max 5 MB."""
+    from app.config import settings
+
+    if file.content_type not in ALLOWED_CV_TYPES:
+        raise HTTPException(status_code=400, detail="Only PDF and Word documents are accepted.")
+
+    contents = await file.read()
+    if len(contents) > MAX_CV_MB * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"File too large. Max {MAX_CV_MB} MB.")
+
+    # Save to local uploads directory
+    ext = os.path.splitext(file.filename or "cv.pdf")[1] or ".pdf"
+    filename = f"cv_{user.id}{ext}"
+    filepath = os.path.join(settings.LOCAL_STORAGE_PATH, filename)
+
+    os.makedirs(settings.LOCAL_STORAGE_PATH, exist_ok=True)
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    url = f"/uploads/{filename}"
+
+    # Update seeker profile
+    result = await db.execute(select(JobSeeker).where(JobSeeker.user_id == user.id))
+    seeker = result.scalar_one_or_none()
+    if seeker:
+        seeker.cv_url = url
+        await db.commit()
+
+    return {"cv_url": url, "filename": file.filename, "size_kb": len(contents) // 1024}
+
+
+@router.post("/upload-avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    user: User = Depends(get_seeker),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a profile photo. Max 2 MB."""
+    from app.config import settings
+
+    if file.content_type not in ALLOWED_IMG_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG, and WebP images are accepted.")
+
+    contents = await file.read()
+    if len(contents) > MAX_IMG_MB * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"File too large. Max {MAX_IMG_MB} MB.")
+
+    ext = os.path.splitext(file.filename or "avatar.jpg")[1] or ".jpg"
+    filename = f"avatar_{user.id}{ext}"
+    filepath = os.path.join(settings.LOCAL_STORAGE_PATH, filename)
+
+    os.makedirs(settings.LOCAL_STORAGE_PATH, exist_ok=True)
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    url = f"/uploads/{filename}"
+
+    result = await db.execute(select(JobSeeker).where(JobSeeker.user_id == user.id))
+    seeker = result.scalar_one_or_none()
+    if seeker:
+        seeker.avatar_url = url
+        await db.commit()
+
+    return {"avatar_url": url, "filename": file.filename}
 
 
 class ProfileUpdate(BaseModel):

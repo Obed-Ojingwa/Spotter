@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
 from app.deps import get_org
-from app.models import User, Organization
+from app.models import User, Organization, Job
 
 router = APIRouter(prefix="/org", tags=["organization"])
 
@@ -28,6 +28,104 @@ class ContractStaffRequest(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     required_skills: list[str] = []
+
+
+
+    # ── Training request ───────────────────────────────────────────────────────
+
+class TrainingRequest(BaseModel):
+    title: str
+    description: str
+    skills_needed: list[str] = []
+    participant_count: Optional[int] = None
+    preferred_date: Optional[str] = None
+
+
+@router.post("/training-request")
+async def request_training(
+    body: TrainingRequest,
+    user: User = Depends(get_org),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Organisation requests employee training.
+    Creates a special job posting flagged as training type.
+    """
+    from app.models import Job, JobStatus
+    from datetime import datetime, timezone, timedelta
+
+    result = await db.execute(select(Organization).where(Organization.user_id == user.id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+
+    # Store as a special job entry with employment_type=training
+    job = Job(
+        title=f"[Training] {body.title}",
+        description=body.description,
+        org_id=org.id,
+        poster_type="org",
+        employment_type="training",
+        required_skills=body.skills_needed,
+        required_tech_stack=[],
+        status=JobStatus.DRAFT,   # draft — not public
+        expires_at=datetime.now(timezone.utc) + timedelta(days=90),
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    return {
+        "message": "Training request submitted. Our team will be in touch.",
+        "request_id": str(job.id),
+        "title": body.title,
+    }
+
+
+@router.get("/jobs")
+async def list_org_jobs(
+    user: User = Depends(get_org),
+    db: AsyncSession = Depends(get_db),
+    page: int = 1,
+    limit: int = 50,
+):
+    """Jobs posted by this organisation (dashboard / manage listings)."""
+    result = await db.execute(select(Organization).where(Organization.user_id == user.id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    stmt = (
+        select(Job)
+        .where(Job.org_id == org.id)
+        .order_by(Job.created_at.desc())
+        .offset(max(0, (page - 1) * limit))
+        .limit(min(limit, 100))
+    )
+    result = await db.execute(stmt)
+    jobs = result.scalars().all()
+
+    def _status(j: Job) -> str:
+        s = j.status
+        return s.value if hasattr(s, "value") else str(s)
+
+    return {
+        "page": page,
+        "limit": limit,
+        "jobs": [
+            {
+                "id": str(j.id),
+                "title": j.title,
+                "city": j.city,
+                "state": j.state,
+                "work_mode": j.work_mode,
+                "employment_type": j.employment_type,
+                "status": _status(j),
+                "created_at": j.created_at.isoformat() if j.created_at else "",
+            }
+            for j in jobs
+        ],
+    }
 
 
 @router.get("/profile")
