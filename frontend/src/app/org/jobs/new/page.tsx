@@ -80,11 +80,17 @@ export default function PostJobPage() {
       router.push(`/jobs/${res.data.id}`);
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
+      const detailMsg =
+        typeof detail === "string"
+          ? detail
+          : detail && typeof detail === "object" && "message" in detail
+            ? String((detail as { message: string }).message)
+            : null;
       if (err?.response?.status === 402) {
-        toast.error("No free posts left — redirecting to payment...");
+        toast.error(detailMsg ?? "No free posts left — add a job post payment to continue.");
         router.push("/org/billing");
       } else {
-        toast.error(typeof detail === "string" ? detail : "Failed to post job.");
+        toast.error(detailMsg ?? "Failed to post job.");
       }
     }
   }

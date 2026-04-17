@@ -6,6 +6,10 @@ and returns a weighted score from 0–100.
 
 Each criterion scorer returns a float 0.0–1.0.
 The weighted average × 100 = final match percentage.
+
+Skills/tech use a recall-heavy blend (so meeting all stated requirements scores
+high); certifications and licenses fold into the skills criterion when set on the job. Remote and hybrid jobs
+adjust location scoring; education averages only dimensions the job specifies.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -43,26 +47,59 @@ def _normalise_list(items: list | None) -> set[str]:
     return {str(i).lower().strip() for i in items if i}
 
 
-def score_skills(seeker: JobSeeker, job: Job) -> float:
-    """Jaccard similarity between seeker skills and required skills."""
-    required = _normalise_list(job.required_skills)
+def _recall_jaccard_blend(required: set[str], seeker_has: set[str]) -> float:
+    """
+    Blend recall (coverage of requirements) with Jaccard so candidates who
+    match all required items score high, while pure Jaccard alone over-penalises
+    seekers with extra skills.
+    """
     if not required:
-        return 1.0  # job has no skill requirement → full score
+        return 1.0
+    intersection = required & seeker_has
+    recall = len(intersection) / len(required)
+    union = required | seeker_has
+    jaccard = len(intersection) / len(union) if union else 0.0
+    return 0.65 * recall + 0.35 * jaccard
+
+
+def score_skills(seeker: JobSeeker, job: Job) -> float:
+    """
+    Skills + soft skills vs required skills (recall-weighted blend).
+    Also scores certifications_required / licenses_required against seeker lists when the job specifies them (same criterion weight as skills).
+    """
     seeker_skills = _normalise_list(seeker.skills) | _normalise_list(seeker.soft_skills)
-    intersection = required & seeker_skills
-    union = required | seeker_skills
-    return len(intersection) / len(union) if union else 0.0
+    required = _normalise_list(job.required_skills)
+    cert_req = _normalise_list(job.certifications_required)
+    lic_req = _normalise_list(job.licenses_required)
+
+    parts: list[float] = []
+
+    if required:
+        parts.append(_recall_jaccard_blend(required, seeker_skills))
+
+    seeker_creds = _normalise_list(seeker.certifications)
+    if cert_req:
+        parts.append(_recall_jaccard_blend(cert_req, seeker_creds))
+
+    seeker_lic = _normalise_list(seeker.licenses)
+    if lic_req:
+        parts.append(_recall_jaccard_blend(lic_req, seeker_lic))
+
+    if not parts:
+        return 1.0
+    return sum(parts) / len(parts)
 
 
 def score_tech_stack(seeker: JobSeeker, job: Job) -> float:
-    """Jaccard similarity for tech stack."""
+    """
+    Tech stack vs job requirements. Seeker skills often list tools here too,
+    so we union tech_stack with skills for matching.
+    """
     required = _normalise_list(job.required_tech_stack)
     if not required:
         return 1.0
-    seeker_stack = _normalise_list(seeker.tech_stack)
-    intersection = required & seeker_stack
-    union = required | seeker_stack
-    return len(intersection) / len(union) if union else 0.0
+    seeker_stack = _normalise_list(seeker.tech_stack) | _normalise_list(seeker.skills)
+    return _recall_jaccard_blend(required, seeker_stack)
 
 
 def score_experience(seeker: JobSeeker, job: Job) -> float:
@@ -84,36 +121,76 @@ def score_experience(seeker: JobSeeker, job: Job) -> float:
     required = float(job.required_experience_years)
     if total_years >= required:
         return 1.0
-    return total_years / required
+    ratio = total_years / required
+    # Some profiles list roles without per-role "years"; don't treat as zero signal.
+    if ratio == 0.0 and seeker.work_experience and isinstance(seeker.work_experience, list):
+        if any(isinstance(x, dict) and x for x in seeker.work_experience):
+            return min(0.55, 0.35 + 0.05 * len(seeker.work_experience))
+
+    return ratio
 
 
 def score_location(seeker: JobSeeker, job: Job) -> float:
     """
     Tiered location matching:
-    Street match → 1.0
     City match   → 0.85
     State match  → 0.6
     No match     → 0.0
+
+    Remote roles: no geography penalty. Unspecified job location: neutral.
     """
+    wm = (job.work_mode or "").lower().strip()
+    if wm == "remote":
+        return 1.0
+
     if not job.city and not job.state:
-        return 1.0  # remote/no location preference
+        return 1.0
 
     seeker_city = (seeker.city or "").lower().strip()
     seeker_state = (seeker.state or "").lower().strip()
     job_city = (job.city or "").lower().strip()
     job_state = (job.state or "").lower().strip()
 
+    tier = 0.0
     if seeker_city and job_city and seeker_city == job_city:
-        return 0.85
-    if seeker_state and job_state and seeker_state == job_state:
-        return 0.6
-    return 0.0
+        tier = 0.85
+    elif seeker_state and job_state and seeker_state == job_state:
+        tier = 0.6    # Hybrid roles tolerate more geographic spread than fully onsite.
+    if wm == "hybrid":
+        if tier > 0:
+            return min(1.0, tier + 0.1)
+        return 0.5
+
+    return tier
+
+
+def _education_rank_key(label: str) -> str:
+    """Normalise free-text education labels from forms / profiles."""
+    s = label.lower().strip()
+    aliases = {
+        "b.sc": "bsc",
+        "bachelor": "bsc",
+        "bachelors": "bsc",
+        "bs": "bsc",
+        "ba": "bsc",
+        "beng": "bsc",
+        "msc": "masters",
+        "m.sc": "masters",
+        "m.s": "masters",
+        "ms": "masters",
+        "mba": "masters",
+        "ma": "masters",
+        "ph.d": "phd",
+        "doctorate": "phd",
+        "dphil": "phd",
+    }
+    return aliases.get(s, s)
 
 
 def score_education(seeker: JobSeeker, job: Job) -> float:
     """
-    Education level + degree classification.
-    Returns average of two sub-scores.
+    Education level and degree classification — only criteria the job specifies
+    are averaged (unspecified dimensions are not treated as automatic full marks).
     """
     EDUCATION_RANK = {
         "phd": 5, "masters": 4, "pgd": 3,
@@ -122,21 +199,30 @@ def score_education(seeker: JobSeeker, job: Job) -> float:
     DEGREE_CLASS_RANK = {
         "first class": 4, "second class upper": 3,
         "second class lower": 2, "third class": 1, "pass": 0,
+        "2:1": 3, "2:2": 2, "2.1": 3, "2.2": 2,
     }
 
-    edu_score = 1.0
-    if job.required_education:
-        required_rank = EDUCATION_RANK.get(job.required_education.lower(), 0)
-        seeker_rank = EDUCATION_RANK.get((seeker.education or "").lower(), 0)
-        edu_score = 1.0 if seeker_rank >= required_rank else seeker_rank / max(required_rank, 1)
+    parts: list[float] = []
 
-    class_score = 1.0
+    if job.required_education:
+        req_key = _education_rank_key(job.required_education)
+        seek_key = _education_rank_key(seeker.education or "")
+        required_rank = EDUCATION_RANK.get(req_key, 0)
+        seeker_rank = EDUCATION_RANK.get(seek_key, 0)
+        parts.append(
+            1.0 if seeker_rank >= required_rank else seeker_rank / max(required_rank, 1)
+        )
+
     if job.required_degree_class:
         required_rank = DEGREE_CLASS_RANK.get(job.required_degree_class.lower(), 0)
         seeker_rank = DEGREE_CLASS_RANK.get((seeker.degree_classification or "").lower(), 0)
-        class_score = 1.0 if seeker_rank >= required_rank else seeker_rank / max(required_rank, 1)
+        parts.append(
+            1.0 if seeker_rank >= required_rank else seeker_rank / max(required_rank, 1)
+        )
 
-    return (edu_score + class_score) / 2
+    if not parts:
+        return 1.0
+    return sum(parts) / len(parts)
 
 
 def score_work_mode(seeker: JobSeeker, job: Job) -> float:
@@ -180,10 +266,12 @@ def score_demographics(seeker: JobSeeker, job: Job) -> float:
             1.0 if (seeker.marital_status or "").lower() == job.preferred_marital_status.lower() else 0.0
         )
     if job.preferred_age_min or job.preferred_age_max:
-        age = seeker.age or 0
-        min_age = job.preferred_age_min or 0
-        max_age = job.preferred_age_max or 999
-        checks.append(1.0 if min_age <= age <= max_age else 0.0)
+        if seeker.age is not None:
+            min_age = job.preferred_age_min or 0
+            max_age = job.preferred_age_max or 999
+            checks.append(
+                1.0 if min_age <= seeker.age <= max_age else 0.0
+            )
 
     return sum(checks) / len(checks) if checks else 1.0
 

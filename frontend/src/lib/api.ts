@@ -97,6 +97,9 @@ export const orgApi = {
   getJobMatchCounts: () => api.get("/matching/org/job-match-counts"),
   getCandidates: (job_id: string) =>
     api.get(`/matching/job/${job_id}/candidates`),
+  /** Applicants who applied to this job (org must own the job). */
+  listJobApplications: (job_id: string) =>
+    api.get(`/applications/job/${job_id}`),
 };
 
 // ── Agent ─────────────────────────────────────────────────────────────────

@@ -103,6 +103,8 @@ async def get_job_applications(
     """Org views applicants for one of their jobs."""
     result = await db.execute(select(Organization).where(Organization.user_id == user.id))
     org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization profile not found")
 
     result = await db.execute(select(Job).where(Job.id == job_id, Job.org_id == org.id))
     job = result.scalar_one_or_none()

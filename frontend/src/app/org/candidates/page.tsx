@@ -11,8 +11,7 @@ import {
   CheckCircle, AlertCircle
 } from "lucide-react";
 import toast from "react-hot-toast";
-import api from "@/lib/api";
-import { paymentsApi } from "@/lib/api";
+import api, { orgApi, paymentsApi } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import Navbar from "@/components/layout/Navbar";
 import { ScoreBadge, ScoreBar } from "@/components/matching/MatchCard";
@@ -54,6 +53,24 @@ interface JobOption {
   status: string;
 }
 
+interface ApplicantRow {
+  application_id: string;
+  status: string;
+  applied_at: string;
+  cover_letter: string | null;
+  seeker: {
+    id: string;
+    name: string;
+    city?: string;
+    state?: string;
+    education?: string;
+    skills?: string[];
+    available: boolean;
+  };
+}
+
+type CandidatesTab = "applicants" | "matched";
+
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function OrgCandidatesPage() {
   const router               = useRouter();
@@ -67,6 +84,9 @@ export default function OrgCandidatesPage() {
   const [loadingJobs,  setLoadingJobs]  = useState(true);
   const [unlocking,    setUnlocking]    = useState(false);
   const [expanded,     setExpanded]     = useState<string | null>(null);
+  const [tab,          setTab]          = useState<CandidatesTab>("applicants");
+  const [applicants,   setApplicants]   = useState<ApplicantRow[]>([]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
 
   // Auth guard
   useEffect(() => {
@@ -74,22 +94,42 @@ export default function OrgCandidatesPage() {
     if (user?.role !== "org") { router.push("/"); return; }
   }, [isLoggedIn, user, router]);
 
-  // Load org's jobs for the selector
+  // Load this organisation's jobs for the selector (not the public /jobs feed).
   useEffect(() => {
     if (!isLoggedIn() || user?.role !== "org") return;
-    api.get("/jobs", { params: { limit: 50 } })
+    orgApi
+      .listJobs({ limit: 100, page: 1 })
       .then((r) => {
-        const active = r.data.jobs.filter((j: JobOption) => j.status === "active");
-        setJobs(active);
-        // If URL had a job param, keep it selected
-        if (!selectedJob && active.length > 0) {
-          setSelectedJob(active[0].id);
+        const list: JobOption[] = r.data.jobs ?? [];
+        setJobs(list);
+        const fromUrl = searchParams.get("job");
+        if (fromUrl && list.some((j) => j.id === fromUrl)) {
+          setSelectedJob(fromUrl);
+        } else if (list.length > 0) {
+          const current = fromUrl ?? selectedJob;
+          const stillValid = current && list.some((j) => j.id === current);
+          if (!stillValid) setSelectedJob(list[0].id);
         }
       })
       .catch(() => toast.error("Could not load your jobs"))
       .finally(() => setLoadingJobs(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, user]);
+
+  const fetchApplicants = useCallback(async () => {
+    if (!selectedJob) return;
+    setLoadingApplicants(true);
+    setApplicants([]);
+    try {
+      const res = await orgApi.listJobApplications(selectedJob);
+      setApplicants(res.data ?? []);
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail;
+      toast.error(typeof msg === "string" ? msg : "Failed to load applicants");
+    } finally {
+      setLoadingApplicants(false);
+    }
+  }, [selectedJob]);
 
   // Fetch candidates whenever selectedJob changes
   const fetchCandidates = useCallback(async () => {
@@ -107,7 +147,10 @@ export default function OrgCandidatesPage() {
     }
   }, [selectedJob]);
 
-  useEffect(() => { fetchCandidates(); }, [fetchCandidates]);
+  useEffect(() => {
+    fetchApplicants();
+    fetchCandidates();
+  }, [fetchApplicants, fetchCandidates]);
 
   // Unlock premium candidates
   async function handleUnlock() {
@@ -148,9 +191,9 @@ export default function OrgCandidatesPage() {
               <ArrowLeft size={20} className="text-gray-600" />
             </Link>
             <div>
-              <h1 className="text-2xl font-black text-gray-900">Matched Candidates</h1>
+              <h1 className="text-2xl font-black text-gray-900">Candidates</h1>
               <p className="text-sm text-gray-500 mt-0.5">
-                Spotter-approved candidates ranked by match score
+                People who applied to your roles and Spotter-approved matches
               </p>
             </div>
           </div>
@@ -163,9 +206,9 @@ export default function OrgCandidatesPage() {
           ) : jobs.length === 0 ? (
             <div className="card text-center py-12">
               <Briefcase size={36} className="mx-auto text-gray-200 mb-3" />
-              <p className="font-semibold text-gray-600 mb-2">No active jobs</p>
+              <p className="font-semibold text-gray-600 mb-2">No jobs yet</p>
               <p className="text-sm text-gray-400 mb-5">
-                Post a job first to see matched candidates.
+                Post a job first to see applicants and matched candidates.
               </p>
               <Link href="/org/jobs/new" className="btn-primary inline-block text-sm">
                 Post a Job
@@ -194,8 +237,62 @@ export default function OrgCandidatesPage() {
             </div>
           )}
 
-          {/* Premium unlock banner */}
-          {result?.unlock_required && !result.unlocked && (
+          {jobs.length > 0 && (
+            <div className="flex gap-1 p-1 bg-gray-200/60 rounded-xl w-fit">
+              <button
+                type="button"
+                onClick={() => setTab("applicants")}
+                className={cn(
+                  "px-4 py-2 text-sm font-semibold rounded-lg transition-colors",
+                  tab === "applicants"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                )}
+              >
+                Applicants
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("matched")}
+                className={cn(
+                  "px-4 py-2 text-sm font-semibold rounded-lg transition-colors",
+                  tab === "matched"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                )}
+              >
+                Matched (Spotter)
+              </button>
+            </div>
+          )}
+
+          {/* Applicants tab */}
+          {tab === "applicants" && jobs.length > 0 && (
+            <div className="space-y-4">
+              {loadingApplicants ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 size={28} className="animate-spin text-red-600" />
+                </div>
+              ) : applicants.length === 0 ? (
+                <EmptyApplicants />
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500">
+                    <span className="font-semibold text-gray-800">{applicants.length}</span>
+                    {" "}application{applicants.length !== 1 ? "s" : ""} for this role
+                  </p>
+                  <div className="space-y-3">
+                    {applicants.map((a) => (
+                      <ApplicantCard key={a.application_id} row={a} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Premium unlock banner — matched tab only */}
+          {tab === "matched" && result?.unlock_required && !result.unlocked && (
             <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
@@ -221,59 +318,149 @@ export default function OrgCandidatesPage() {
             </div>
           )}
 
-          {result?.unlocked && (
+          {tab === "matched" && result?.unlocked && (
             <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-sm text-green-700 font-medium">
               <CheckCircle size={16} />
               All premium candidates unlocked for {selectedJobTitle}
             </div>
           )}
 
-          {/* Results */}
-          {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <Loader2 size={32} className="animate-spin text-red-600" />
-            </div>
-          ) : !result ? null : result.candidates.length === 0 ? (
-            <EmptyCandidates />
-          ) : (
-            <>
-              <p className="text-sm text-gray-500">
-                <span className="font-semibold text-gray-800">{result.total}</span> matched candidate{result.total !== 1 ? "s" : ""}
-                {result.premium_count > 0 && (
-                  <span className="ml-2 text-amber-600 font-medium">
-                    · {result.premium_count} premium (≥ 90%)
-                  </span>
-                )}
-              </p>
-
-              <div className="space-y-3">
-                {result.candidates.map((c) =>
-                  c.blurred ? (
-                    <BlurredCard
-                      key={c.match_id}
-                      score={c.score}
-                      city={c.city}
-                      state={c.state}
-                      onUnlock={handleUnlock}
-                    />
-                  ) : (
-                    <CandidateCard
-                      key={c.match_id}
-                      candidate={c}
-                      expanded={expanded === c.match_id}
-                      onToggle={() =>
-                        setExpanded(expanded === c.match_id ? null : c.match_id)
-                      }
-                    />
-                  )
-                )}
+          {/* Matched results */}
+          {tab === "matched" && jobs.length > 0 && (
+            loading ? (
+              <div className="flex items-center justify-center py-24">
+                <Loader2 size={32} className="animate-spin text-red-600" />
               </div>
-            </>
+            ) : !result ? null : result.candidates.length === 0 ? (
+              <EmptyCandidates />
+            ) : (
+              <>
+                <p className="text-sm text-gray-500">
+                  <span className="font-semibold text-gray-800">{result.total}</span> matched candidate{result.total !== 1 ? "s" : ""}
+                  {result.premium_count > 0 && (
+                    <span className="ml-2 text-amber-600 font-medium">
+                      · {result.premium_count} premium (≥ 90%)
+                    </span>
+                  )}
+                </p>
+
+                <div className="space-y-3">
+                  {result.candidates.map((c) =>
+                    c.blurred ? (
+                      <BlurredCard
+                        key={c.match_id}
+                        score={c.score}
+                        city={c.city}
+                        state={c.state}
+                        onUnlock={handleUnlock}
+                      />
+                    ) : (
+                      <CandidateCard
+                        key={c.match_id}
+                        candidate={c}
+                        expanded={expanded === c.match_id}
+                        onToggle={() =>
+                          setExpanded(expanded === c.match_id ? null : c.match_id)
+                        }
+                      />
+                    )
+                  )}
+                </div>
+              </>
+            )
           )}
 
         </div>
       </div>
     </>
+  );
+}
+
+// ── Applicants (direct applications) ───────────────────────────────────────
+function ApplicantCard({ row }: { row: ApplicantRow }) {
+  const [open, setOpen] = useState(false);
+  const s = row.seeker;
+  return (
+    <div className="card border border-gray-100">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-4 text-left"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-900">{s.name}</p>
+          <p className="text-sm text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {(s.city || s.state) && (
+              <span className="flex items-center gap-1">
+                <MapPin size={12} /> {[s.city, s.state].filter(Boolean).join(", ")}
+              </span>
+            )}
+            {s.education && (
+              <span className="flex items-center gap-1">
+                <GraduationCap size={12} /> {s.education}
+              </span>
+            )}
+            <span className="text-gray-400">
+              Applied {new Date(row.applied_at).toLocaleString()}
+            </span>
+          </p>
+        </div>
+        <span
+          className={cn(
+            "text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 capitalize",
+            row.status === "shortlisted" && "bg-green-100 text-green-800",
+            row.status === "rejected" && "bg-red-50 text-red-700",
+            row.status === "viewed" && "bg-blue-50 text-blue-700",
+            (row.status === "applied" || !["shortlisted", "rejected", "viewed"].includes(row.status)) &&
+              "bg-gray-100 text-gray-700"
+          )}
+        >
+          {row.status.replace(/_/g, " ")}
+        </span>
+        <span className={cn("text-gray-300 text-lg leading-none transition-transform shrink-0", open && "rotate-90")}>
+          ›
+        </span>
+      </button>
+      {open && (
+        <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+          {s.skills && s.skills.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Skills</p>
+              <div className="flex flex-wrap gap-1.5">
+                {s.skills.map((sk) => (
+                  <span key={sk} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-lg">
+                    {sk}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {row.cover_letter ? (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Cover letter</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{row.cover_letter}</p>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">No cover letter</p>
+          )}
+          <p className="text-xs text-gray-500">
+            {s.available ? "Marked as available" : "Marked unavailable"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmptyApplicants() {
+  return (
+    <div className="text-center py-16 card">
+      <Users size={40} className="mx-auto text-gray-200 mb-3" />
+      <h3 className="text-lg font-semibold text-gray-700 mb-1">No applicants yet</h3>
+      <p className="text-sm text-gray-400 max-w-md mx-auto">
+        When job seekers apply from the job listing, they appear here with their profile and cover letter.
+      </p>
+    </div>
   );
 }
 
