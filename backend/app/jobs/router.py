@@ -6,6 +6,7 @@ from sqlalchemy import select, or_
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
+from app.timeutil import utc_plus_days_naive
 from app.database import get_db
 from app.deps import get_current_user, get_org, get_agent, get_admin
 from app.models import User, UserRole, Job, JobStatus, Organization, Agent, Payment, PaymentStatus, PaymentPurpose
@@ -184,7 +185,7 @@ async def create_job(
         org_id=org_id,
         agent_id=agent_id,
         poster_type=poster_type,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        expires_at=utc_plus_days_naive(30),
     )
     db.add(job)
     await db.commit()

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, String
 from pydantic import BaseModel
 from app.database import get_db
 from app.deps import get_current_user, get_seeker, get_org, get_admin
@@ -81,7 +81,7 @@ async def trigger_match(
                 Payment.payer_id == seeker.id,
                 Payment.purpose == PaymentPurpose.SEEKER_MATCH,
                 Payment.status == PaymentStatus.SUCCESS,
-                Payment.extra_data["job_id"].astext == str(job.id),
+                cast(Payment.extra_data["job_id"], String) == str(job.id),
             )
         )
         paid = result.scalar_one_or_none()
@@ -196,7 +196,7 @@ async def get_job_candidates(
             Payment.payer_id == org.id,
             Payment.purpose == PaymentPurpose.ORG_UNLOCK,
             Payment.status == PaymentStatus.SUCCESS,
-            Payment.extra_data["job_id"].astext == job_id,
+            cast(Payment.extra_data["job_id"], String) == job_id,
         )
     )
     has_unlocked = paid_unlock.scalar_one_or_none() is not None

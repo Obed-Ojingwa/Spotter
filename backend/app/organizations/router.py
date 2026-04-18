@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
 from app.deps import get_org
+from app.timeutil import utc_plus_days_naive, utc_plus_timedelta_naive
 from app.models import User, Organization, Job
 
 router = APIRouter(prefix="/org", tags=["organization"])
@@ -52,7 +53,6 @@ async def request_training(
     Creates a special job posting flagged as training type.
     """
     from app.models import Job, JobStatus
-    from datetime import datetime, timezone, timedelta
 
     result = await db.execute(select(Organization).where(Organization.user_id == user.id))
     org = result.scalar_one_or_none()
@@ -69,7 +69,7 @@ async def request_training(
         required_skills=body.skills_needed,
         required_tech_stack=[],
         status=JobStatus.DRAFT,   # draft — not public
-        expires_at=datetime.now(timezone.utc) + timedelta(days=90),
+        expires_at=utc_plus_days_naive(90),
     )
     db.add(job)
     await db.commit()
@@ -171,11 +171,14 @@ async def request_contract_staff(
     Org requests contract staff — this creates a special job posting
     flagged as contract type. Matching engine runs against it normally.
     """
+    from datetime import timedelta
+
     from app.models import Job, JobStatus
-    from datetime import datetime, timezone, timedelta
 
     result = await db.execute(select(Organization).where(Organization.user_id == user.id))
     org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
 
     job = Job(
         title=body.title,
@@ -189,7 +192,7 @@ async def request_contract_staff(
         required_skills=body.required_skills,
         required_tech_stack=[],
         status=JobStatus.ACTIVE,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=body.duration_months * 30),
+        expires_at=utc_plus_timedelta_naive(timedelta(days=body.duration_months * 30)),
     )
     db.add(job)
     await db.commit()
