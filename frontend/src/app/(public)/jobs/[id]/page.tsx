@@ -7,7 +7,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   MapPin, Briefcase, Clock, DollarSign, GraduationCap,
-  CheckCircle, ArrowLeft, Loader2, Target, AlertCircle
+  CheckCircle, ArrowLeft, Loader2, Target, AlertCircle,
+  Upload, FileText, ExternalLink
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { jobsApi, paymentsApi, seekerApi } from "@/lib/api";
@@ -51,6 +52,8 @@ export default function JobDetailPage() {
   const [showApply,    setShowApply]    = useState(false);
   const [applied,      setApplied]      = useState(false);
   const [profileComplete, setProfileComplete] = useState(true);
+  const [cvUrl,        setCvUrl]        = useState<string | null>(null);
+  const [cvUploading,  setCvUploading]  = useState(false);
 
   useEffect(() => {
     jobsApi.get(id)
@@ -63,10 +66,48 @@ export default function JobDetailPage() {
   useEffect(() => {
     if (user?.role === "seeker") {
       seekerApi.getProfile()
-        .then((r) => setProfileComplete(r.data.profile_complete))
+        .then((r) => {
+          setProfileComplete(r.data.profile_complete);
+          setCvUrl(r.data.cv_url ?? null);
+        })
         .catch(() => {});
     }
   }, [user]);
+
+  async function handleCvChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const okTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    if (!okTypes.includes(file.type)) {
+      toast.error("Please upload a PDF or Word document (.pdf, .doc, .docx).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File must be 5 MB or smaller.");
+      return;
+    }
+
+    setCvUploading(true);
+    try {
+      const res = await seekerApi.uploadCv(file);
+      const url = res.data?.cv_url as string | undefined;
+      if (url) setCvUrl(url);
+      toast.success("Resume uploaded and ready for this application.");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Resume upload failed.");
+    } finally {
+      setCvUploading(false);
+    }
+  }
 
   async function handleApply() {
     if (!isLoggedIn()) { router.push("/login"); return; }
@@ -76,8 +117,8 @@ export default function JobDetailPage() {
       setApplied(true);
       setShowApply(false);
       toast.success("Application submitted!");
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       if (msg?.includes("already applied")) {
         toast.error("You have already applied to this job.");
         setApplied(true);
@@ -100,10 +141,11 @@ export default function JobDetailPage() {
     try {
       const res = await api.post("/matching/trigger", { job_id: id });
       toast.success(`Match submitted! Score: ${res.data.score?.toFixed(1)}% — awaiting Spotter review.`);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
+    } catch (err: unknown) {
+      const response = (err as { response?: { status?: number; data?: { detail?: unknown } } })?.response;
+      const detail = response?.data?.detail;
       // Payment required
-      if (err?.response?.status === 402) {
+      if (response?.status === 402) {
         toast.error("Your first match is used. Redirecting to payment...");
         const payRes = await paymentsApi.initiate("seeker_match", { job_id: id });
         window.location.href = payRes.data.authorization_url;
@@ -143,7 +185,8 @@ export default function JobDetailPage() {
     );
   }
 
-  const isSeeker   = user?.role === "seeker";
+  const isSeeker = user?.role === "seeker";
+  const uploadsBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
   const daysLeft   = job.expires_at
     ? Math.ceil((new Date(job.expires_at).getTime() - Date.now()) / 86400000)
     : null;
@@ -324,6 +367,46 @@ export default function JobDetailPage() {
                       </button>
                     ) : (
                       <div className="space-y-3">
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-gray-800">Resume / CV</p>
+                            <p className="text-xs text-gray-500">
+                              Upload a PDF or Word document. Your resume is saved to your seeker profile and used with this application.
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <label className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:border-red-300 hover:text-red-700 cursor-pointer">
+                              <Upload size={16} />
+                              {cvUploading ? "Uploading…" : cvUrl ? "Replace resume" : "Upload resume"}
+                              <input
+                                type="file"
+                                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                className="hidden"
+                                disabled={cvUploading}
+                                onChange={handleCvChange}
+                              />
+                            </label>
+
+                            {cvUrl ? (
+                              <a
+                                href={`${uploadsBaseUrl}${cvUrl}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-700 hover:underline"
+                              >
+                                <FileText size={14} />
+                                View uploaded resume
+                                <ExternalLink size={11} className="opacity-60" />
+                              </a>
+                            ) : (
+                              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                No resume uploaded yet. You can still apply, but adding one improves your application.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
                         <textarea
                           value={coverLetter}
                           onChange={(e) => setCoverLetter(e.target.value)}
@@ -334,11 +417,11 @@ export default function JobDetailPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={handleApply}
-                            disabled={applying}
+                            disabled={applying || cvUploading}
                             className="btn-primary flex-1 flex items-center justify-center gap-2 text-sm"
                           >
-                            {applying && <Loader2 size={15} className="animate-spin" />}
-                            Submit
+                            {(applying || cvUploading) && <Loader2 size={15} className="animate-spin" />}
+                            {cvUploading ? "Uploading resume..." : "Submit"}
                           </button>
                           <button
                             onClick={() => setShowApply(false)}
@@ -390,7 +473,7 @@ export default function JobDetailPage() {
                   <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500 space-y-1">
                     <p className="font-semibold text-gray-600">How matching works</p>
                     <p>Your profile is scored against this job on 8 criteria.</p>
-                    <p>A Spotter reviews the score before it's revealed.</p>
+                    <p>A Spotter reviews the score before the result is revealed.</p>
                     <p className="text-green-600 font-medium">✓ First match is always free</p>
                   </div>
                 )}
