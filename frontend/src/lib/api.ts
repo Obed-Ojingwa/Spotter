@@ -13,6 +13,10 @@ api.interceptors.request.use((config) => {
     const token = localStorage.getItem("access_token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
+  // Don't force Content-Type for FormData — let axios set multipart/form-data
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 
