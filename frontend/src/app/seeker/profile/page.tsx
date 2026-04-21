@@ -170,37 +170,70 @@ export default function SeekerProfilePage() {
       .finally(() => setLoading(false));
   }, [isLoggedIn, user, reset]);
 
+  // async function handleCvChange(e: React.ChangeEvent<HTMLInputElement>) {
+  //   const file = e.target.files?.[0];
+  //   e.target.value = "";
+  //   if (!file) return;
+  //   const okTypes = [
+  //     "application/pdf",
+  //     "application/msword",
+  //     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  //   ];
+  //   if (!okTypes.includes(file.type)) {
+  //     toast.error("Please upload a PDF or Word document (.pdf, .doc, .docx).");
+  //     return;
+  //   }
+  //   if (file.size > 5 * 1024 * 1024) {
+  //     toast.error("File must be 5 MB or smaller."); return;
+  //   }
+  //   setCvUploading(true);
+  //   try {
+  //     const form = new FormData();
+  //     form.append("file", file);
+  //     const res = await seekerApi.uploadCv(form);
+  //     const url = res.data?.cv_url as string | undefined;
+  //     if (url) setCvUrl(url);
+  //     toast.success("CV uploaded successfully.");
+  //   } catch (err: any) {
+  //     const detail = err?.response?.data?.detail;
+  //     toast.error(typeof detail === "string" ? detail : "CV upload failed.");
+  //   } finally {
+  //     setCvUploading(false);
+  //   }
+  //}
   async function handleCvChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    const okTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-    if (!okTypes.includes(file.type)) {
-      toast.error("Please upload a PDF or Word document (.pdf, .doc, .docx).");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File must be 5 MB or smaller."); return;
-    }
-    setCvUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await seekerApi.uploadCV(form);
-      const url = res.data?.cv_url as string | undefined;
-      if (url) setCvUrl(url);
-      toast.success("CV uploaded successfully.");
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "CV upload failed.");
-    } finally {
-      setCvUploading(false);
-    }
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+
+  const okTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
+  if (!okTypes.includes(file.type)) {
+    toast.error("Please upload a PDF or Word document (.pdf, .doc, .docx).");
+    return;
   }
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error("File must be 5 MB or smaller.");
+    return;
+  }
+
+  setCvUploading(true);
+  try {
+    // ✅ Pass raw File, use correct method name (lowercase v)
+    const res = await seekerApi.uploadCv(file);
+    const url = res.data?.cv_url as string | undefined;
+    if (url) setCvUrl(url);
+    toast.success("CV uploaded successfully.");
+  } catch (err: any) {
+    const detail = err?.response?.data?.detail;
+    toast.error(typeof detail === "string" ? detail : "CV upload failed.");
+  } finally {
+    setCvUploading(false);
+  }
+}
 
   async function onSubmit(data: FormData) {
     setSaving(true);
