@@ -1,3 +1,5 @@
+# C:\Users\Melody\Desktop\spotter_dashboards\spotter\backend\app\admin\router.py
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -316,3 +318,162 @@ async def platform_analytics(
         "weekly_growth": weeks,
         "match_breakdown": match_breakdown,
     }
+
+
+
+# Additional admin endpoints (e.g. manual match approval, content moderation) ------------- As I add 
+
+# ── Match management (Admin / Executive Admin / Super Admin) ──────────────
+
+@router.get("/matches")
+async def list_all_matches(
+    status: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
+    admin: User = Depends(get_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all matches across the platform with seeker + job details.
+    Filterable by status: pending_spotter | spotter_approved | revealed | spotter_rejected
+    """
+    from app.models import JobSeeker, Job, Organization
+
+    stmt = (
+        select(Match, JobSeeker, Job)
+        .join(JobSeeker, Match.seeker_id == JobSeeker.id)
+        .join(Job, Match.job_id == Job.id)
+        .order_by(Match.matched_at.desc())
+    )
+    if status:
+        stmt = stmt.where(Match.status == status)
+
+    stmt = stmt.offset((page - 1) * limit).limit(limit)
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    # Total count for pagination
+    count_stmt = select(func.count(Match.id))
+    if status:
+        count_stmt = count_stmt.where(Match.status == status)
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "matches": [
+            {
+                "id": str(match.id),
+                "score": match.score,
+                "breakdown": match.score_breakdown,
+                "status": match.status.value,
+                "triggered_by": match.triggered_by,
+                "certificate_issued": match.certificate_issued,
+                "matched_at": match.matched_at.isoformat(),
+                "approved_at": match.approved_at.isoformat() if match.approved_at else None,
+                "spotter_notes": match.spotter_notes,
+                "seeker": {
+                    "id": str(seeker.id),
+                    "name": seeker.name,
+                    "email": None,   # loaded separately if needed
+                    "city": seeker.city,
+                    "state": seeker.state,
+                    "education": seeker.education,
+                    "skills": seeker.skills or [],
+                    "available": seeker.available,
+                    "cv_url": seeker.cv_url,
+                    "desired_job": seeker.desired_job,
+                    "nysc_status": seeker.nysc_status,
+                    "school_attended": seeker.school_attended,
+                    "course_studied": seeker.course_studied,
+                },
+                "job": {
+                    "id": str(job.id),
+                    "title": job.title,
+                    "city": job.city,
+                    "state": job.state,
+                    "work_mode": job.work_mode,
+                    "status": job.status.value,
+                },
+            }
+            for match, seeker, job in rows
+        ],
+    }
+
+
+class MatchDecisionBody(BaseModel):
+    notes: Optional[str] = None
+
+
+@router.post("/matches/{match_id}/approve")
+async def admin_approve_match(
+    match_id: str,
+    body: MatchDecisionBody,
+    admin: User = Depends(get_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Admin approves a match → status becomes REVEALED.
+    Triggers certificate generation as a background task.
+    """
+    from datetime import datetime, timezone
+    from app.tasks.matching_tasks import generate_certificate
+
+    result = await db.execute(select(Match).where(Match.id == match_id))
+    match = result.scalar_one_or_none()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    if match.status == MatchStatus.REVEALED:
+        raise HTTPException(status_code=409, detail="Match already approved")
+
+    match.status = MatchStatus.REVEALED
+    match.approved_at = datetime.now(timezone.utc)
+    if body.notes:
+        match.spotter_notes = body.notes
+
+    await db.commit()
+
+    # Fire certificate generation in background (non-blocking)
+    try:
+        generate_certificate.delay(str(match.id))
+    except Exception:
+        pass  # Celery might not be running in dev — don't block approval
+
+    return {
+        "match_id": match_id,
+        "status": "revealed",
+        "approved_at": match.approved_at.isoformat(),
+        "message": "Match approved and revealed to organisation.",
+    }
+
+
+@router.post("/matches/{match_id}/reject")
+async def admin_reject_match(
+    match_id: str,
+    body: MatchDecisionBody,
+    admin: User = Depends(get_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin rejects a match → status becomes SPOTTER_REJECTED."""
+    result = await db.execute(select(Match).where(Match.id == match_id))
+    match = result.scalar_one_or_none()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    if match.status == MatchStatus.REVEALED:
+        raise HTTPException(status_code=409, detail="Cannot reject an already approved match")
+
+    match.status = MatchStatus.SPOTTER_REJECTED
+    if body.notes:
+        match.spotter_notes = body.notes
+
+    await db.commit()
+
+    return {
+        "match_id": match_id,
+        "status": "spotter_rejected",
+        "message": "Match rejected.",
+    }
+

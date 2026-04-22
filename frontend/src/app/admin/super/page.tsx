@@ -176,6 +176,7 @@ export default function SuperAdminDashboard() {
                 <h3 className="font-bold text-gray-900">Super Admin Actions</h3>
               </div>
               {[
+                { href: "/admin/matches", icon: Target, label: "Match Review", sub: "Approve or reject seeker matches" },
                 { href: "/admin/users",      icon: Users,       label: "Manage all users",         sub: "Create, edit, disable any account"  },
                 { href: "/admin/agents",     icon: UserCheck,   label: "Manage agents",            sub: "Points, referrals, promotions"      },
                 { href: "/admin/promotions", icon: Gift,        label: "Run promotions",           sub: "Grant bonus points to all agents"   },

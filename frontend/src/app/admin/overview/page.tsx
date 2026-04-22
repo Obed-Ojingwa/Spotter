@@ -181,6 +181,7 @@ export default function AdminOverviewDashboard() {
                   <h3 className="font-bold text-gray-900 text-sm">Operations</h3>
                 </div>
                 {[
+                  { href: "/admin/matches", icon: Target, label: "Match Review", sub: "Approve or reject seeker matches" },
                   { href: "/admin/users",      icon: Users,      label: "Manage users",    sub: "View all accounts"       },
                   { href: "/admin/agents",     icon: UserCheck,  label: "Manage agents",   sub: "Points & activity"       },
                   { href: "/admin/promotions", icon: Star,       label: "Promotions",      sub: "Bonus point campaigns"   },

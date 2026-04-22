@@ -136,6 +136,14 @@ export const adminApi = {
   listPayments:   (params?: object) => api.get("/admin/payments", { params }),
   approvePayout:  (id: string)    => api.post(`/admin/payments/${id}/approve-payout`),
   getAnalytics:   ()              => api.get("/admin/analytics"),
+
+  // Inside adminApi object, add:
+  listMatches: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get("/admin/matches", { params }),
+  approveMatch: (match_id: string, notes?: string) =>
+    api.post(`/admin/matches/${match_id}/approve`, { notes }),
+  rejectMatch: (match_id: string, notes?: string) =>
+    api.post(`/admin/matches/${match_id}/reject`, { notes }),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────
