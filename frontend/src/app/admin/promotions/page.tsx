@@ -86,7 +86,7 @@ export default function AdminPromotionsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Points to grant
               </label>
-              <input type="number" step="0.5" min="0.5" {...register("points")}
+              <input type="number" step="0.5" min="0.5" {...register("points", { valueAsNumber: true })}
                 className="input" placeholder="e.g. 5" />
               {errors.points && <p className="text-red-500 text-xs mt-1">{errors.points.message}</p>}
               {watchPoints >= 0.5 && (

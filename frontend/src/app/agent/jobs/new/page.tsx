@@ -34,9 +34,9 @@ const schema = z.object({
   state:            z.string().optional(),
   work_mode:        z.string().optional(),
   employment_type:  z.string().optional(),
-  salary_min:       z.coerce.number().optional(),
-  salary_max:       z.coerce.number().optional(),
-  required_experience_years: z.coerce.number().optional(),
+  salary_min:       z.number().optional(),
+  salary_max:       z.number().optional(),
+  required_experience_years: z.number().optional(),
 });
 type FormData = z.infer<typeof schema>;
 

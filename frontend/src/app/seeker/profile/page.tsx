@@ -47,7 +47,7 @@ const schema = z.object({
   state:                 z.string().min(1, "State is required"),
   religion:              z.string().optional(),
   gender:                z.string().min(1, "Gender is required"),
-  age:                   z.coerce.number().min(16).max(80).optional(),
+  age:                   z.number().min(16).max(80).optional(),
   marital_status:        z.string().optional(),
   education:             z.string().min(1, "Education level is required"),
   degree_classification: z.string().optional(),
