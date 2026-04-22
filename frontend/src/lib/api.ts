@@ -120,7 +120,12 @@ export const spotterApi = {
   getQueue: ()                                          => api.get("/spotter/queue"),
   review:   (match_id: string, approved: boolean, notes?: string) =>
     api.post(`/spotter/review/${match_id}`, { approved, notes }),
-  getStats: ()                                          => api.get("/spotter/stats"),
+  getStats: ()  => api.get("/spotter/stats"),
+
+
+  // for ny match history page
+  getHistory: (params?: { decision?: string; page?: number; limit?: number }) =>
+  api.get("/spotter/history", { params }),
 };
 
 // ── Admin ─────────────────────────────────────────────────────────────────

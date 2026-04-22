@@ -1,4 +1,4 @@
-# C:\Users\Melody\Documents\Spotter\backend\app\spotters\router.py
+# C:\Users\Melody\Desktop\spotter_dashboards\spotter\backend\app\spotters\router.py
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -102,7 +102,9 @@ async def review_match(
 
     match.spotter_id    = spotter.id
     match.spotter_notes = body.notes
-    match.approved_at   = datetime.now(timezone.utc)
+    # match.approved_at   = datetime.now(timezone.utc)  # Set in admin router to ensure consistent timezone handling
+    # I will use def upgrade() -> None: op.alter_column('matches', 'approved_at', type_=sa.DateTime(timezone=True), existing_type=sa.DateTime(), nullable=True ) to upgrade my alembic migration to ensure the approved_at column is timezone-aware, and then use datetime.utcnow() here for consistency.
+    match.approved_at   = datetime.utcnow()
 
     if body.approved:
         match.status = MatchStatus.REVEALED
@@ -227,4 +229,65 @@ async def spotter_stats(
         "total_approved": spotter.total_approved,
         "total_rejected": spotter.total_rejected,
         "pending_in_queue": pending,
+    }
+
+
+
+@router.get("/history")
+async def spotter_history(
+    user: User = Depends(get_spotter),
+    db: AsyncSession = Depends(get_db),
+    page: int = 1,
+    limit: int = 20,
+    decision: Optional[str] = None,  # "approved" | "rejected"
+):
+    """All matches this spotter has reviewed, paginated."""
+    result = await db.execute(select(Spotter).where(Spotter.user_id == user.id))
+    spotter = result.scalar_one_or_none()
+    if not spotter:
+        raise HTTPException(status_code=404, detail="Spotter profile not found")
+
+    stmt = (
+        select(Match, JobSeeker, Job)
+        .join(JobSeeker, Match.seeker_id == JobSeeker.id)
+        .join(Job, Match.job_id == Job.id)
+        .where(Match.spotter_id == spotter.id)
+        .order_by(Match.approved_at.desc())
+    )
+    if decision == "approved":
+        stmt = stmt.where(Match.status == MatchStatus.REVEALED)
+    elif decision == "rejected":
+        stmt = stmt.where(Match.status == MatchStatus.SPOTTER_REJECTED)
+
+    count_stmt = select(func.count(Match.id)).where(Match.spotter_id == spotter.id)
+    if decision == "approved":
+        count_stmt = count_stmt.where(Match.status == MatchStatus.REVEALED)
+    elif decision == "rejected":
+        count_stmt = count_stmt.where(Match.status == MatchStatus.SPOTTER_REJECTED)
+
+    total = (await db.execute(count_stmt)).scalar() or 0
+    stmt = stmt.offset((page - 1) * limit).limit(limit)
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return {
+        "total": total,
+        "page": page,
+        "matches": [
+            {
+                "match_id": str(match.id),
+                "score": match.score,
+                "status": match.status.value,
+                "is_premium": match.score >= 90,
+                "spotter_notes": match.spotter_notes,
+                "approved_at": match.approved_at.isoformat() if match.approved_at else None,
+                "seeker": {
+                    "name": seeker.name,
+                    "city": seeker.city,
+                    "state": seeker.state,
+                },
+                "job": {"title": job.title},
+            }
+            for match, seeker, job in rows
+        ],
     }

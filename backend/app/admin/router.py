@@ -429,7 +429,8 @@ async def admin_approve_match(
         raise HTTPException(status_code=409, detail="Match already approved")
 
     match.status = MatchStatus.REVEALED
-    match.approved_at = datetime.now(timezone.utc)
+    # match.approved_at = datetime.now(timezone.utc)
+    match.approved_at = datetime.utcnow()
     if body.notes:
         match.spotter_notes = body.notes
 
