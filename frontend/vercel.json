@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://https://spotter-w42e.onrender.com/api/:path*"
+      "destination": "https://spotter-w42e.onrender.com/api/:path*"
     }
   ]
 }
