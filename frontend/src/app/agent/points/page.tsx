@@ -265,7 +265,7 @@ export default function AgentPointsPage() {
                     step="0.5"
                     min="10"
                     max={summary?.points}
-                    {...register("points_to_convert")}
+                    {...register("points_to_convert",{ valueAsNumber: true })}
                     className="input"
                     placeholder="e.g. 10"
                   />

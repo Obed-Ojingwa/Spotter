@@ -13,7 +13,8 @@ import { adminApi } from "@/lib/api";
 import Navbar from "@/components/layout/Navbar";
 
 const schema = z.object({
-  points:    z.coerce.number().min(0.5, "Enter at least 0.5 points"),
+  // points:    z.coerce.number().min(0.5, "Enter at least 0.5 points"),
+  points: z.number().min(0.5, "Enter at least 0.5 points"),
   reason:    z.string().min(1),
   agent_id:  z.string().optional(),
 });
