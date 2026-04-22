@@ -73,3 +73,7 @@ app.include_router(rbac_router,         prefix="/api")  # ← new RBAC endpoints
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "app": settings.APP_NAME, "version": "2.0.0"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
