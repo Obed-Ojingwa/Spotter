@@ -54,7 +54,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Local dev test 
+# app.mount("/uploads", StaticFiles(directory=settings.LOCAL_STORAGE_PATH), name="uploads")
+
+# production 
+
+os.makedirs(settings.LOCAL_STORAGE_PATH, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.LOCAL_STORAGE_PATH), name="uploads")
+
 
 # ── All routers ───────────────────────────────────────────────────────────
 app.include_router(auth_router,         prefix="/api")
