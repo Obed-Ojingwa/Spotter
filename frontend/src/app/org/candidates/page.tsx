@@ -17,6 +17,13 @@ import Navbar from "@/components/layout/Navbar";
 import { ScoreBadge, ScoreBar } from "@/components/matching/MatchCard";
 import { cn } from "@/lib/utils";
 
+const getAssetUrl = (path?: string) => {
+  if (!path) return undefined;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const apiRoot = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+  return `${apiRoot}${path}`;
+};
+
 // ── Types ──────────────────────────────────────────────────────────────────
 interface CandidateResult {
   match_id: string;
@@ -66,6 +73,7 @@ interface ApplicantRow {
     education?: string;
     skills?: string[];
     available: boolean;
+    cv_url?: string;
   };
 }
 
@@ -451,6 +459,16 @@ function ApplicantCard({ row }: { row: ApplicantRow }) {
           ) : (
             <p className="text-xs text-gray-400">No cover letter</p>
           )}
+          {s.cv_url && (
+            <a
+              href={getAssetUrl(s.cv_url)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-red-700 font-semibold hover:underline"
+            >
+              <Briefcase size={14} /> View CV / Resume
+            </a>
+          )}
           <p className="text-xs text-gray-500">
             {s.available ? "Marked as available" : "Marked unavailable"}
           </p>
@@ -571,7 +589,7 @@ function CandidateCard({
           {/* CV link */}
           {s.cv_url && (
             <a
-              href={s.cv_url}
+              href={getAssetUrl(s.cv_url)}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-red-700 font-semibold hover:underline"

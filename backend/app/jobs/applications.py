@@ -209,6 +209,7 @@ async def get_job_applications(
                 "education": s.education,
                 "skills": s.skills,
                 "available": s.available,
+                "cv_url": s.cv_url,
             },
         }
         for a, s in rows
