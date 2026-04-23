@@ -31,8 +31,12 @@ interface DashSummary {
 }
 
 // ── Convert schema ─────────────────────────────────────────────────────────
+// z.number() is used (not z.coerce.number()) because valueAsNumber: true on
+// the <input> means RHF hands Zod a real JS number — no coercion needed.
+// z.coerce.number() types the input as `unknown`, causing a TS mismatch with
+// useForm<ConvertForm> which expects `number`. valueAsNumber: true is the fix.
 const convertSchema = z.object({
-  points_to_convert:   z.coerce.number().min(10, "Minimum 10 points"),
+  points_to_convert:   z.number().min(10, "Minimum 10 points"),
   bank_account_name:   z.string().min(3, "Account name is required"),
   bank_account_number: z.string().length(10, "Must be 10 digits").regex(/^\d+$/, "Digits only"),
   bank_name:           z.string().min(3, "Bank name is required"),
@@ -52,9 +56,9 @@ export default function AgentPointsPage() {
   const router               = useRouter();
   const { user, isLoggedIn } = useAuthStore();
 
-  const [history,  setHistory]  = useState<PointEntry[]>([]);
-  const [summary,  setSummary]  = useState<DashSummary | null>(null);
-  const [loading,  setLoading]  = useState(true);
+  const [history,   setHistory]   = useState<PointEntry[]>([]);
+  const [summary,   setSummary]   = useState<DashSummary | null>(null);
+  const [loading,   setLoading]   = useState(true);
   const [submitted, setSubmitted] = useState(false);
 
   // Auth guard
@@ -82,7 +86,7 @@ export default function AgentPointsPage() {
     formState: { errors, isSubmitting },
   } = useForm<ConvertForm>({ resolver: zodResolver(convertSchema) });
 
-  const watchPoints = watch("points_to_convert");
+  const watchPoints  = watch("points_to_convert");
   const nairaPreview = watchPoints ? Number(watchPoints) * 2000 : 0;
 
   async function onConvert(data: ConvertForm) {
@@ -91,7 +95,6 @@ export default function AgentPointsPage() {
       toast.success(res.data.message);
       setSubmitted(true);
       reset();
-      // Refresh balance
       agentApi.getDashboard().then((r) =>
         setSummary({ points: r.data.points, naira_value: r.data.naira_value })
       );
@@ -111,9 +114,8 @@ export default function AgentPointsPage() {
     );
   }
 
-  // Separate credits vs debits
-  const credits = history.filter((e) => e.delta > 0);
-  const debits  = history.filter((e) => e.delta < 0);
+  const credits    = history.filter((e) => e.delta > 0);
+  const debits     = history.filter((e) => e.delta < 0);
   const canConvert = (summary?.points ?? 0) >= 10;
 
   return (
@@ -124,17 +126,12 @@ export default function AgentPointsPage() {
 
           {/* Header */}
           <div className="flex items-center gap-4">
-            <Link
-              href="/agent/dashboard"
-              className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-            >
+            <Link href="/agent/dashboard" className="p-2 rounded-lg hover:bg-gray-200 transition-colors">
               <ArrowLeft size={20} className="text-gray-600" />
             </Link>
             <div>
               <h1 className="text-2xl font-black text-gray-900">Points & Payouts</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                View your earnings and request naira payouts
-              </p>
+              <p className="text-sm text-gray-500 mt-0.5">View your earnings and request naira payouts</p>
             </div>
           </div>
 
@@ -171,7 +168,6 @@ export default function AgentPointsPage() {
             {/* History (3/5) */}
             <div className="lg:col-span-3 space-y-4">
               <h2 className="font-bold text-gray-900 text-lg">Transaction History</h2>
-
               {history.length === 0 ? (
                 <div className="card text-center py-12">
                   <Wallet size={36} className="mx-auto text-gray-200 mb-3" />
@@ -204,10 +200,7 @@ export default function AgentPointsPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={cn(
-                              "font-bold",
-                              entry.delta >= 0 ? "text-green-600" : "text-red-500"
-                            )}>
+                            <span className={cn("font-bold", entry.delta >= 0 ? "text-green-600" : "text-red-500")}>
                               {entry.delta >= 0 ? "+" : ""}{entry.delta.toFixed(2)}
                             </span>
                             <span className="text-xs text-gray-400 ml-1">pts</span>
@@ -234,9 +227,7 @@ export default function AgentPointsPage() {
                   <CheckCircle size={18} className="shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold">Payout request submitted!</p>
-                    <p className="text-green-600 text-xs mt-0.5">
-                      Admin will process within 2 business days.
-                    </p>
+                    <p className="text-green-600 text-xs mt-0.5">Admin will process within 2 business days.</p>
                   </div>
                 </div>
               )}
@@ -252,7 +243,8 @@ export default function AgentPointsPage() {
                 onSubmit={handleSubmit(onConvert)}
                 className={cn("card space-y-4", !canConvert && "opacity-60 pointer-events-none")}
               >
-                {/* Points amount */}
+                {/* Points amount — valueAsNumber: true converts the HTML string to number
+                    before RHF passes it to Zod, so z.number() sees a real number. */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Points to convert
@@ -265,7 +257,7 @@ export default function AgentPointsPage() {
                     step="0.5"
                     min="10"
                     max={summary?.points}
-                    {...register("points_to_convert",{ valueAsNumber: true })}
+                    {...register("points_to_convert", { valueAsNumber: true })}
                     className="input"
                     placeholder="e.g. 10"
                   />
@@ -279,26 +271,16 @@ export default function AgentPointsPage() {
                   )}
                 </div>
 
-                {/* Bank account name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Account name
-                  </label>
-                  <input
-                    {...register("bank_account_name")}
-                    className="input"
-                    placeholder="John Doe"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Account name</label>
+                  <input {...register("bank_account_name")} className="input" placeholder="John Doe" />
                   {errors.bank_account_name && (
                     <p className="text-red-500 text-xs mt-1">{errors.bank_account_name.message}</p>
                   )}
                 </div>
 
-                {/* Account number */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Account number
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Account number</label>
                   <input
                     {...register("bank_account_number")}
                     className="input"
@@ -310,16 +292,11 @@ export default function AgentPointsPage() {
                   )}
                 </div>
 
-                {/* Bank name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Bank
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Bank</label>
                   <select {...register("bank_name")} className="input">
                     <option value="">Select your bank</option>
-                    {BANKS.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
+                    {BANKS.map((b) => <option key={b} value={b}>{b}</option>)}
                   </select>
                   {errors.bank_name && (
                     <p className="text-red-500 text-xs mt-1">{errors.bank_name.message}</p>
@@ -339,8 +316,7 @@ export default function AgentPointsPage() {
                 </button>
 
                 <p className="text-xs text-gray-400 text-center">
-                  Payouts are reviewed and sent by admin within 2 business days.
-                  1 point = ₦2,000.
+                  Payouts are reviewed and sent by admin within 2 business days. 1 point = ₦2,000.
                 </p>
               </form>
             </div>
