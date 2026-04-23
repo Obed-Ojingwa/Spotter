@@ -15,9 +15,8 @@ import { getRoleDashboard } from "@/lib/utils";
 import { Eye, EyeOff, Loader2, Briefcase, Building2, Users, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-
-
 export const dynamic = "force-dynamic";
+export const runtime = "edge";
 
 const ROLES = [
   { value: "seeker",  label: "Job Seeker",   icon: Briefcase,   desc: "Find your next role" },

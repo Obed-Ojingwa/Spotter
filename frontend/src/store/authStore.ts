@@ -24,37 +24,49 @@ function deleteCookie(name: string) {
 }
 
 export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      accessToken: null,
-      refreshToken: null,
+  typeof window !== "undefined"
+    ? persist(
+        (set, get) => ({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
 
-      setAuth: ({ access_token, refresh_token, role }) => {
-        // Store tokens in localStorage for API calls
-        localStorage.setItem("access_token", access_token);
-        localStorage.setItem("refresh_token", refresh_token);
-        // Store role in cookie so Next.js middleware can read it
-        setCookie("spotter_role", role);
-        set({ accessToken: access_token, refreshToken: refresh_token, user: { role } });
-      },
+          setAuth: ({ access_token, refresh_token, role }) => {
+            // Store tokens in localStorage for API calls
+            localStorage.setItem("access_token", access_token);
+            localStorage.setItem("refresh_token", refresh_token);
+            // Store role in cookie so Next.js middleware can read it
+            setCookie("spotter_role", role);
+            set({ accessToken: access_token, refreshToken: refresh_token, user: { role } });
+          },
 
-      clearAuth: () => {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        deleteCookie("spotter_role");
-        set({ user: null, accessToken: null, refreshToken: null });
-      },
+          clearAuth: () => {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            deleteCookie("spotter_role");
+            set({ user: null, accessToken: null, refreshToken: null });
+          },
 
-      isLoggedIn: () => !!get().accessToken,
-    }),
-    {
-      name: "spotter-auth",
-      partialize: (state) => ({
-        user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-      }),
-    }
-  )
+          isLoggedIn: () => !!get().accessToken,
+        }),
+        {
+          name: "auth-storage",
+        }
+      )
+    : (set, get) => ({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+
+        setAuth: ({ access_token, refresh_token, role }) => {
+          // On server, just set state without persistence
+          set({ accessToken: access_token, refreshToken: refresh_token, user: { role } });
+        },
+
+        clearAuth: () => {
+          set({ user: null, accessToken: null, refreshToken: null });
+        },
+
+        isLoggedIn: () => !!get().accessToken,
+      })
 );

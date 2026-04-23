@@ -12,6 +12,9 @@ import { useAuthStore } from "@/store/authStore";
 import { getRoleDashboard } from "@/lib/utils";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+export const runtime = "edge";
+
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),

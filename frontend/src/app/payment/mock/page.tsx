@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle, Loader2, CreditCard, ArrowLeft } from "lucide-react";
 import { paymentsApi } from "@/lib/api";
@@ -11,6 +11,14 @@ import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 
 export default function MockPaymentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" size={24} /></div>}>
+      <MockPaymentPageContent />
+    </Suspense>
+  );
+}
+
+function MockPaymentPageContent() {
   const searchParams = useSearchParams();
   const { user }     = useAuthStore();
   const [processing, setProcessing] = useState(false);

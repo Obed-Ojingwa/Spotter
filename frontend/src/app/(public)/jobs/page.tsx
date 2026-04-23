@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -43,7 +43,7 @@ const WORK_MODES = ["remote", "onsite", "hybrid"];
 const EMPLOYMENT_TYPES = ["full-time", "part-time", "contract", "internship"];
 
 // ── Page ───────────────────────────────────────────────────────────────────
-export default function JobsPage() {
+function JobsPageContent() {
   const router      = useRouter();
   const searchParams = useSearchParams();
 
@@ -287,6 +287,14 @@ export default function JobsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" size={24} /></div>}>
+      <JobsPageContent />
+    </Suspense>
   );
 }
 

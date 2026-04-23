@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -72,7 +72,7 @@ interface ApplicantRow {
 type CandidatesTab = "applicants" | "matched";
 
 // ── Page ───────────────────────────────────────────────────────────────────
-export default function OrgCandidatesPage() {
+function OrgCandidatesPageContent() {
   const router               = useRouter();
   const searchParams         = useSearchParams();
   const { user, isLoggedIn } = useAuthStore();
@@ -373,6 +373,14 @@ export default function OrgCandidatesPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function OrgCandidatesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" size={24} /></div>}>
+      <OrgCandidatesPageContent />
+    </Suspense>
   );
 }
 
