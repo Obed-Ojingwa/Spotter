@@ -1,16 +1,5 @@
-// // C:\Users\Melody\Documents\Spotter\frontend\src\app\page.tsx
-// // Root entry — immediately sends visitors to the public home page
-// import { redirect } from "next/navigation";
-
-// // export default function RootPage() {
-// //   redirect("/home");
-// // }
-
-// export default function RootPage() {
-//   redirect("/(public)");
-// }
-
-// C:\Users\Melody\Documents\Spotter\frontend\src\app\(public)\page.tsx
+// C:\Users\Melody\Documents\Spotter\frontend\src\app\page.tsx
+// Root entry — public home page with job listings
 
 "use client";
 
@@ -445,7 +434,6 @@ function JobCard({ job }: { job: Job }) {
             : job.description}
         </p>
       )}
-
 
       {/* Apply button row */}
       <div className="flex items-center justify-between pt-1 border-t border-gray-50 mt-1">
