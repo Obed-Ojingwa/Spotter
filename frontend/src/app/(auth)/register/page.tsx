@@ -1,3 +1,5 @@
+// C:\Users\Melody\Desktop\spotter_dashboards\spotter\frontend\src\app\(auth)\register\page.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -12,6 +14,10 @@ import { useAuthStore } from "@/store/authStore";
 import { getRoleDashboard } from "@/lib/utils";
 import { Eye, EyeOff, Loader2, Briefcase, Building2, Users, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+
+
+export const dynamic = "force-dynamic";
 
 const ROLES = [
   { value: "seeker",  label: "Job Seeker",   icon: Briefcase,   desc: "Find your next role" },
