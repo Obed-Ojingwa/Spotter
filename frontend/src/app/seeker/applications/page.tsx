@@ -29,14 +29,15 @@ interface Application {
   };
 }
 
-type FilterStatus = "all" | "applied" | "shortlisted" | "rejected";
+// "viewed" added — must match every value used in the summary cards array
+type FilterStatus = "all" | "applied" | "viewed" | "shortlisted" | "rejected";
 
 // ── Status config ──────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
-  applied:     { label: "Applied",     cls: "bg-blue-100 text-blue-700",   icon: FileText   },
-  viewed:      { label: "Viewed",      cls: "bg-purple-100 text-purple-700", icon: Eye      },
-  shortlisted: { label: "Shortlisted", cls: "bg-green-100 text-green-700", icon: CheckCircle },
-  rejected:    { label: "Rejected",    cls: "bg-red-100 text-red-500",     icon: XCircle    },
+  applied:     { label: "Applied",     cls: "bg-blue-100 text-blue-700",     icon: FileText    },
+  viewed:      { label: "Viewed",      cls: "bg-purple-100 text-purple-700", icon: Eye         },
+  shortlisted: { label: "Shortlisted", cls: "bg-green-100 text-green-700",   icon: CheckCircle },
+  rejected:    { label: "Rejected",    cls: "bg-red-100 text-red-500",       icon: XCircle     },
 };
 
 // ── Page ───────────────────────────────────────────────────────────────────
@@ -66,11 +67,17 @@ export default function SeekerApplicationsPage() {
     filter === "all" ? true : a.status === filter
   );
 
-  // Per-status counts for tabs
+  // Per-status counts for summary cards
   const counts = applications.reduce<Record<string, number>>((acc, a) => {
     acc[a.status] = (acc[a.status] ?? 0) + 1;
     return acc;
   }, {});
+
+  // All four statuses used in summary cards — type is now FilterStatus[] ✓
+  const SUMMARY_STATUSES: FilterStatus[] = ["applied", "viewed", "shortlisted", "rejected"];
+
+  // Filter tab options — includes "viewed" so the tab bar can also filter by it
+  const FILTER_TABS: FilterStatus[] = ["all", "applied", "viewed", "shortlisted", "rejected"];
 
   return (
     <>
@@ -97,8 +104,8 @@ export default function SeekerApplicationsPage() {
           {/* Summary cards */}
           {applications.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {(["applied", "viewed", "shortlisted", "rejected"] as const).map((s) => {
-                const cfg = STATUS_CONFIG[s];
+              {SUMMARY_STATUSES.map((s) => {
+                const cfg  = STATUS_CONFIG[s];
                 const Icon = cfg.icon;
                 return (
                   <button
@@ -113,8 +120,8 @@ export default function SeekerApplicationsPage() {
                       size={20}
                       className={cn(
                         "mx-auto mb-1",
-                        s === "shortlisted" ? "text-green-500" :
-                        s === "rejected"    ? "text-red-400"   :
+                        s === "shortlisted" ? "text-green-500"  :
+                        s === "rejected"    ? "text-red-400"    :
                         s === "viewed"      ? "text-purple-500" : "text-blue-500"
                       )}
                     />
@@ -129,7 +136,7 @@ export default function SeekerApplicationsPage() {
           {/* Filter tabs */}
           {applications.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
-              {(["all", "applied", "shortlisted", "rejected"] as FilterStatus[]).map((f) => (
+              {FILTER_TABS.map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -225,10 +232,7 @@ function ApplicationRow({ application }: { application: Application }) {
 
       {/* Status badge + action */}
       <div className="flex items-center gap-3 shrink-0">
-        <span className={cn(
-          "text-xs px-3 py-1 rounded-full font-semibold",
-          cfg.cls
-        )}>
+        <span className={cn("text-xs px-3 py-1 rounded-full font-semibold", cfg.cls)}>
           {cfg.label}
         </span>
         <Link
