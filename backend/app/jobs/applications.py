@@ -3,16 +3,81 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional
+import logging
 from app.database import get_db
 from app.deps import get_seeker, get_org, get_current_user
-from app.models import User, UserRole, JobSeeker, Organization, Job, Application, ApplicationStatus
+from app.models import (
+    User, UserRole, JobSeeker, Organization, Job, Application, ApplicationStatus,
+    Match, MatchStatus
+)
+from app.matching.engine import run_match
 
 router = APIRouter(prefix="/applications", tags=["applications"])
+logger = logging.getLogger(__name__)
 
 
 class ApplyRequest(BaseModel):
     job_id: str
     cover_letter: Optional[str] = None
+
+
+async def _trigger_matching_on_application(
+    seeker: JobSeeker,
+    job: Job,
+    db: AsyncSession,
+) -> Optional[str]:
+    """
+    Trigger matching algorithm when seeker applies for a job.
+    Returns match_id if successful, None if error occurred.
+    
+    This is non-blocking - any errors are logged but don't prevent application creation.
+    """
+    try:
+        # Check if a match already exists for this seeker-job pair
+        result = await db.execute(
+            select(Match).where(Match.job_id == job.id, Match.seeker_id == seeker.id)
+        )
+        if result.scalar_one_or_none():
+            logger.info(f"Match already exists for seeker {seeker.id} and job {job.id}")
+            return None
+
+        # Get matching weights from database (or use defaults)
+        from app.matching.engine import DEFAULT_WEIGHTS
+        from app.models import MatchingWeight
+        
+        result = await db.execute(select(MatchingWeight))
+        weights_rows = result.scalars().all()
+        weights = {w.criterion: w.weight for w in weights_rows} if weights_rows else {}
+
+        # Run the matching engine
+        match_result = run_match(seeker, job, weights or None)
+
+        # Create match record with PENDING_SPOTTER status
+        # This will be visible to admins and spotters for review
+        match = Match(
+            job_id=job.id,
+            seeker_id=seeker.id,
+            score=match_result.score,
+            score_breakdown=match_result.breakdown,
+            status=MatchStatus.PENDING_SPOTTER,
+            triggered_by="seeker",
+        )
+        db.add(match)
+        await db.flush()
+        
+        logger.info(
+            f"Match created for seeker {seeker.id} and job {job.id} "
+            f"with score {match_result.score}"
+        )
+        return str(match.id)
+
+    except Exception as e:
+        # Log error but don't raise - application should still succeed
+        logger.error(
+            f"Error triggering match for seeker {seeker.id} and job {job.id}: {str(e)}",
+            exc_info=True
+        )
+        return None
 
 
 @router.post("", status_code=201)
@@ -48,16 +113,27 @@ async def apply_to_job(
         status=ApplicationStatus.APPLIED,
     )
     db.add(application)
+    
+    # Trigger matching algorithm automatically on application
+    match_id = await _trigger_matching_on_application(seeker, job, db)
+    
     await db.commit()
     await db.refresh(application)
 
-    return {
+    response = {
         "application_id": str(application.id),
         "job_id": str(job.id),
         "job_title": job.title,
         "status": application.status.value,
         "applied_at": application.applied_at.isoformat(),
     }
+    
+    # Include match info if match was created
+    if match_id:
+        response["match_id"] = match_id
+        response["match_status"] = "pending_review"
+    
+    return response
 
 
 @router.get("/mine")
