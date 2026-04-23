@@ -315,7 +315,13 @@ export default function SeekerProfilePage() {
               </select>
             </Field>
             <Field label="Age">
-              <input type="number" {...register("age")} className="input" placeholder="25" min={16} max={80} />
+              <input type="number" {...register("age", { valueAsNumber: true })}
+              className="input" 
+              placeholder="25"
+              min={16}
+              max={80}
+              />
+              {/* <input type="number" {...register("age")} className="input" placeholder="25" min={16} max={80} /> */}
             </Field>
             <Field label="Marital Status">
               <select {...register("marital_status")} className="input">
