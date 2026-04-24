@@ -1,4 +1,6 @@
 backend/seed_admins.py 
+backend/seed_org.py
+backend/seed_seekers.py
 node_modules/
 frontend/node_modules/
 .next/
