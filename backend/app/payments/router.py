@@ -34,7 +34,7 @@ async def paystack_initialize(email: str, amount: int, reference: str, metadata:
                 "amount": amount,
                 "reference": reference,
                 "metadata": metadata,
-                "callback_url": "http://localhost:3000/payment/callback",
+                "callback_url": "https://spotter-web-app.vercel.app/payment/callback",
             },
         )
         data = resp.json()
