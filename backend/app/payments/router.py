@@ -118,7 +118,7 @@ async def initiate_payment(
             "reference": reference,
             "amount": amount,
             "currency": "NGN",
-            "authorization_url": f"http://localhost:3000/payment/mock?ref={reference}",
+            "authorization_url": f"https://spotter-web-app.vercel.app/payment/mock?ref={reference}",
             "dev_mode": True,
         }
 
