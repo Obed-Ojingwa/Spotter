@@ -192,7 +192,7 @@ export default function OrgBillingPage() {
               </p>
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                 <strong className="font-semibold">Development:</strong> if Paystack keys are not set, you will
-                open a mock checkout page — click &quot;Approve Payment&quot; to complete the flow without a real charge.
+                open a mock checkout page :::::::::::::::::: click &quot;Approve Payment&quot; to complete the flow without a real charge.
               </p>
             </div>
           </div>

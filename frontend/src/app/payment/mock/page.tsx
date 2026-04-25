@@ -94,7 +94,7 @@ function MockPaymentPageContent() {
                   </div>
                   <h2 className="text-xl font-black text-gray-900">Mock Paystack</h2>
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    This page replaces the real Paystack checkout when API keys are not configured.
+                    This page replaces the real Paystack checkout when API keys are not configured. as we are stil buidin
                     Approve below to complete the payment reference and return to the app.
                   </p>
                   <p className="text-xs font-mono text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 break-all">
