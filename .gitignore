@@ -1,6 +1,9 @@
 backend/seed_admins.py 
 backend/seed_org.py
 backend/seed_seekers.py
+backend/Seeker.xlsx
+backend/seed_orgs.py
+backend/seed_orgs.py
 node_modules/
 frontend/node_modules/
 .next/
