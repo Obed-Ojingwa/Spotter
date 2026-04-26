@@ -68,7 +68,7 @@ export default function HomePage() {
   const [workMode,   setWorkMode]   = useState("");
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
   const [loading,    setLoading]    = useState(true);
-  const [activeTab,  setActiveTab]  = useState<TabKey>("today");
+  const [activeTab,  setActiveTab]  = useState<TabKey>("all");
 
   // ── Auth state ────────────────────────────────────────────────────────
   const [isLoggedIn, setIsLoggedIn] = useState(false);
