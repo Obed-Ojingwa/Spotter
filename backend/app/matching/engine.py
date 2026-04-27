@@ -37,6 +37,8 @@ class MatchResult:
     score: float                        # 0–100
     breakdown: dict[str, float] = field(default_factory=dict)
     is_premium: bool = False            # True when score >= 90
+    # is_silver: bool = False              # Reserved for future use (e.g. 80–89.9)
+    # is_bronze: bool = False              # Reserved for future use (e.g. 70–79.9)
 
 
 # ── Criterion scorers ─────────────────────────────────────────────────────
@@ -188,6 +190,23 @@ def _education_rank_key(label: str) -> str:
     return aliases.get(s, s)
 
 
+def _exact_match(job_value: Optional[str], seeker_value: Optional[str]) -> float:
+    if not job_value:
+        return 1.0
+    if not seeker_value:
+        return 0.0
+    return 1.0 if seeker_value.strip().lower() == job_value.strip().lower() else 0.0
+
+
+def _contains_match(job_value: Optional[str], seeker_value: Optional[str]) -> float:
+    if not job_value:
+        return 1.0
+    if not seeker_value:
+        return 0.0
+    seeker_text = seeker_value.strip().lower()
+    return 1.0 if job_value.strip().lower() in seeker_text else 0.0
+
+
 def score_education(seeker: JobSeeker, job: Job) -> float:
     """
     Education level and degree classification — only criteria the job specifies
@@ -249,30 +268,72 @@ def score_availability(seeker: JobSeeker, job: Job) -> float:
 
 def score_demographics(seeker: JobSeeker, job: Job) -> float:
     """
-    Optional demographic requirements. Only scored when job specifies them.
-    Average across all specified demographic criteria.
+    Optional demographic and extended matching requirements.
+    Only scored when job specifies them. Average across all specified criteria.
     """
     checks: list[float] = []
 
     if job.preferred_gender:
-        checks.append(
-            1.0 if (seeker.gender or "").lower() == job.preferred_gender.lower() else 0.0
-        )
+        checks.append(_exact_match(job.preferred_gender, seeker.gender))
     if job.preferred_religion:
-        checks.append(
-            1.0 if (seeker.religion or "").lower() == job.preferred_religion.lower() else 0.0
-        )
+        checks.append(_exact_match(job.preferred_religion, seeker.religion))
     if job.preferred_marital_status:
-        checks.append(
-            1.0 if (seeker.marital_status or "").lower() == job.preferred_marital_status.lower() else 0.0
-        )
+        checks.append(_exact_match(job.preferred_marital_status, seeker.marital_status))
     if job.preferred_age_min or job.preferred_age_max:
         if seeker.age is not None:
             min_age = job.preferred_age_min or 0
             max_age = job.preferred_age_max or 999
-            checks.append(
-                1.0 if min_age <= seeker.age <= max_age else 0.0
-            )
+            checks.append(1.0 if min_age <= seeker.age <= max_age else 0.0)
+
+    if job.required_desired_job:
+        checks.append(_contains_match(job.required_desired_job, seeker.desired_job))
+    if job.required_nysc_status:
+        checks.append(_exact_match(job.required_nysc_status, seeker.nysc_status))
+    if job.required_state_of_origin:
+        checks.append(_exact_match(job.required_state_of_origin, seeker.state_of_origin))
+    if job.required_tribe:
+        checks.append(_exact_match(job.required_tribe, seeker.tribe))
+    if job.required_languages_spoken:
+        checks.append(_recall_jaccard_blend(
+            _normalise_list(job.required_languages_spoken),
+            _normalise_list(seeker.languages_spoken)
+        ))
+    if job.required_skin_complexion:
+        checks.append(_exact_match(job.required_skin_complexion, seeker.skin_complexion))
+    if job.required_physical_attributes:
+        checks.append(_contains_match(job.required_physical_attributes, seeker.physical_attributes))
+    if job.required_professional_qualification:
+        checks.append(_exact_match(job.required_professional_qualification, seeker.professional_qualification))
+    if job.required_school_attended:
+        checks.append(_contains_match(job.required_school_attended, seeker.school_attended))
+    if job.required_course_studied:
+        checks.append(_contains_match(job.required_course_studied, seeker.course_studied))
+    if job.required_writing_skill:
+        checks.append(_exact_match(job.required_writing_skill, seeker.writing_skill))
+    if job.required_speaking_skill:
+        checks.append(_exact_match(job.required_speaking_skill, seeker.speaking_skill))
+    if job.required_communication_skill:
+        checks.append(_exact_match(job.required_communication_skill, seeker.communication_skill))
+    if job.required_work_attitude:
+        checks.append(_exact_match(job.required_work_attitude, seeker.work_attitude))
+    if job.required_reliability_consistency:
+        checks.append(_exact_match(job.required_reliability_consistency, seeker.reliability_consistency))
+    if job.required_emotional_intelligence:
+        checks.append(_exact_match(job.required_emotional_intelligence, seeker.emotional_intelligence))
+    if job.required_learning_ability:
+        checks.append(_exact_match(job.required_learning_ability, seeker.learning_ability))
+    if job.required_charisma:
+        checks.append(_exact_match(job.required_charisma, seeker.charisma))
+    if job.required_dress_sense:
+        checks.append(_exact_match(job.required_dress_sense, seeker.dress_sense))
+    if job.required_motivational_drive:
+        checks.append(_exact_match(job.required_motivational_drive, seeker.motivational_drive))
+    if job.required_location:
+        checks.append(_contains_match(job.required_location, seeker.location))
+    if job.required_proximity:
+        checks.append(_exact_match(job.required_proximity, seeker.proximity))
+    if job.required_track_record:
+        checks.append(_contains_match(job.required_track_record, seeker.track_record))
 
     return sum(checks) / len(checks) if checks else 1.0
 
