@@ -1,11 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport} from "next";
+import PwaRegister from "@/components/PwaRegister";
 import "./globals.css";
+
+
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#b91c1c",
+};
 
 export const metadata: Metadata = {
   title: "SPOTTER - Job Recruitment Platform",
   description: "AI-powered job matching platform for African talent",
   manifest: "/manifest.json",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -51,6 +61,7 @@ export default function RootLayout({
         <meta name="msapplication-config" content="/browserconfig.xml" />
       </head>
       <body>
+        <PwaRegister />
         {children}
       </body>
     </html>
