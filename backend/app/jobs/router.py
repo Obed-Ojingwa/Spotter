@@ -37,6 +37,29 @@ class JobCreate(BaseModel):
     preferred_age_min: Optional[int] = None
     preferred_age_max: Optional[int] = None
     preferred_marital_status: Optional[str] = None
+    required_desired_job: Optional[str] = None
+    required_nysc_status: Optional[str] = None
+    required_state_of_origin: Optional[str] = None
+    required_tribe: Optional[str] = None
+    required_languages_spoken: list[str] = []
+    required_skin_complexion: Optional[str] = None
+    required_physical_attributes: Optional[str] = None
+    required_professional_qualification: Optional[str] = None
+    required_school_attended: Optional[str] = None
+    required_course_studied: Optional[str] = None
+    required_writing_skill: Optional[str] = None
+    required_speaking_skill: Optional[str] = None
+    required_communication_skill: Optional[str] = None
+    required_work_attitude: Optional[str] = None
+    required_reliability_consistency: Optional[str] = None
+    required_emotional_intelligence: Optional[str] = None
+    required_learning_ability: Optional[str] = None
+    required_charisma: Optional[str] = None
+    required_dress_sense: Optional[str] = None
+    required_motivational_drive: Optional[str] = None
+    required_location: Optional[str] = None
+    required_proximity: Optional[str] = None
+    required_track_record: Optional[str] = None
     certifications_required: list[str] = []
     licenses_required: list[str] = []
 
@@ -266,12 +289,40 @@ def _job_summary(job) -> dict:
 def _job_detail(job: Job) -> dict:
     return {
         **_job_summary(job),
-        "description":              job.description,
-        "required_tech_stack":      job.required_tech_stack,
-        "required_experience_years":job.required_experience_years,
-        "required_education":       job.required_education,
-        "required_degree_class":    job.required_degree_class,
-        "certifications_required":  job.certifications_required,
-        "licenses_required":        job.licenses_required,
-        "expires_at":               job.expires_at.isoformat() if job.expires_at else None,
+        "description":                    job.description,
+        "required_tech_stack":            job.required_tech_stack,
+        "required_experience_years":      job.required_experience_years,
+        "required_education":             job.required_education,
+        "required_degree_class":          job.required_degree_class,
+        "preferred_gender":               job.preferred_gender,
+        "preferred_religion":              job.preferred_religion,
+        "preferred_age_min":              job.preferred_age_min,
+        "preferred_age_max":              job.preferred_age_max,
+        "preferred_marital_status":       job.preferred_marital_status,
+        "required_desired_job":            job.required_desired_job,
+        "required_nysc_status":            job.required_nysc_status,
+        "required_state_of_origin":        job.required_state_of_origin,
+        "required_tribe":                  job.required_tribe,
+        "required_languages_spoken":       job.required_languages_spoken,
+        "required_skin_complexion":        job.required_skin_complexion,
+        "required_physical_attributes":    job.required_physical_attributes,
+        "required_professional_qualification": job.required_professional_qualification,
+        "required_school_attended":        job.required_school_attended,
+        "required_course_studied":         job.required_course_studied,
+        "required_writing_skill":          job.required_writing_skill,
+        "required_speaking_skill":         job.required_speaking_skill,
+        "required_communication_skill":    job.required_communication_skill,
+        "required_work_attitude":          job.required_work_attitude,
+        "required_reliability_consistency": job.required_reliability_consistency,
+        "required_emotional_intelligence": job.required_emotional_intelligence,
+        "required_learning_ability":       job.required_learning_ability,
+        "required_charisma":               job.required_charisma,
+        "required_dress_sense":            job.required_dress_sense,
+        "required_motivational_drive":     job.required_motivational_drive,
+        "required_location":               job.required_location,
+        "required_proximity":              job.required_proximity,
+        "required_track_record":           job.required_track_record,
+        "certifications_required":         job.certifications_required,
+        "licenses_required":               job.licenses_required,
+        "expires_at":                      job.expires_at.isoformat() if job.expires_at else None,
     }

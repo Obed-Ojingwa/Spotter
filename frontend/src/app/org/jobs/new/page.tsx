@@ -29,6 +29,8 @@ const EDUCATION_LVLS   = ["SSCE", "OND", "HND", "BSc", "PGD", "Masters", "PhD"];
 const DEGREE_CLASSES   = ["First Class", "Second Class Upper", "Second Class Lower", "Third Class", "Pass"];
 const RELIGIONS        = ["Christianity", "Islam", "Traditional", "Other"];
 const MARITAL_OPTS     = ["Single", "Married", "Divorced", "Widowed"];
+const NYSC_STATUSES    = ["completed", "exempted", "ongoing", "not_applicable"];
+const QUALITY_RATINGS  = ["Excellent", "Good", "Fair", "Poor"];
 
 // ── Schema ─────────────────────────────────────────────────────────────────
 // All numeric fields use z.number() (not z.coerce.number()).
@@ -52,6 +54,29 @@ const schema = z.object({
   preferred_age_min:         z.number().optional(),
   preferred_age_max:         z.number().optional(),
   preferred_marital_status:  z.string().optional(),
+  required_desired_job:      z.string().optional(),
+  required_nysc_status:      z.string().optional(),
+  required_state_of_origin:  z.string().optional(),
+  required_tribe:            z.string().optional(),
+  required_languages_spoken: z.array(z.string()).optional(),
+  required_skin_complexion:  z.string().optional(),
+  required_physical_attributes: z.string().optional(),
+  required_professional_qualification: z.string().optional(),
+  required_school_attended:   z.string().optional(),
+  required_course_studied:    z.string().optional(),
+  required_writing_skill:     z.string().optional(),
+  required_speaking_skill:    z.string().optional(),
+  required_communication_skill: z.string().optional(),
+  required_work_attitude:     z.string().optional(),
+  required_reliability_consistency: z.string().optional(),
+  required_emotional_intelligence: z.string().optional(),
+  required_learning_ability:  z.string().optional(),
+  required_charisma:          z.string().optional(),
+  required_dress_sense:       z.string().optional(),
+  required_motivational_drive: z.string().optional(),
+  required_location:          z.string().optional(),
+  required_proximity:         z.string().optional(),
+  required_track_record:      z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -64,6 +89,7 @@ export default function PostJobPage() {
   const [techStack, setTechStack] = useState<string[]>([]);
   const [certs,     setCerts]     = useState<string[]>([]);
   const [licenses,  setLicenses]  = useState<string[]>([]);
+  const [languages, setLanguages] = useState<string[]>([]);
   const [showDemog, setShowDemog] = useState(false);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
@@ -81,6 +107,7 @@ export default function PostJobPage() {
         required_tech_stack:     techStack,
         certifications_required: certs,
         licenses_required:       licenses,
+        required_languages_spoken: languages,
       });
       toast.success("Job posted successfully!");
       router.push(`/jobs/${res.data.id}`);
@@ -284,6 +311,163 @@ export default function PostJobPage() {
                       </select>
                     </Field>
                   </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <Field label="Desired Candidate Role">
+                      <input
+                        {...register("required_desired_job")}
+                        className="input"
+                        placeholder="e.g. Backend Engineer"
+                      />
+                    </Field>
+                    <Field label="NYSC Status">
+                      <select {...register("required_nysc_status")} className="input">
+                        <option value="">Any</option>
+                        {NYSC_STATUSES.map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="State of Origin">
+                      <select {...register("required_state_of_origin")} className="input">
+                        <option value="">Any</option>
+                        {NIGERIAN_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Tribe">
+                      <input
+                        {...register("required_tribe")}
+                        className="input"
+                        placeholder="e.g. Igbo, Yoruba, Hausa"
+                      />
+                    </Field>
+                    <Field label="Languages Spoken">
+                      <TagInput
+                        label=""
+                        hint="Add a language and press Enter"
+                        tags={languages}
+                        onChange={setLanguages}
+                      />
+                    </Field>
+                    <Field label="Skin Complexion">
+                      <input
+                        {...register("required_skin_complexion")}
+                        className="input"
+                        placeholder="e.g. Dark, Medium, Light"
+                      />
+                    </Field>
+                    <Field label="Physical Attributes">
+                      <input
+                        {...register("required_physical_attributes")}
+                        className="input"
+                        placeholder="e.g. Tall, Agile, Strong"
+                      />
+                    </Field>
+                    <Field label="Professional Qualification">
+                      <input
+                        {...register("required_professional_qualification")}
+                        className="input"
+                        placeholder="e.g. Chartered Accountant"
+                      />
+                    </Field>
+                    <Field label="School Attended">
+                      <input
+                        {...register("required_school_attended")}
+                        className="input"
+                        placeholder="e.g. University of Lagos"
+                      />
+                    </Field>
+                    <Field label="Course Studied">
+                      <input
+                        {...register("required_course_studied")}
+                        className="input"
+                        placeholder="e.g. Computer Science"
+                      />
+                    </Field>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <Field label="Writing Skill">
+                      <select {...register("required_writing_skill")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Speaking Skill">
+                      <select {...register("required_speaking_skill")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Communication Skill">
+                      <select {...register("required_communication_skill")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Work Attitude">
+                      <select {...register("required_work_attitude")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Reliability / Consistency">
+                      <select {...register("required_reliability_consistency")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Emotional Intelligence">
+                      <select {...register("required_emotional_intelligence")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Learning Ability">
+                      <select {...register("required_learning_ability")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Charisma">
+                      <select {...register("required_charisma")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Dress Sense">
+                      <select {...register("required_dress_sense")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Motivational Drive">
+                      <select {...register("required_motivational_drive")} className="input">
+                        <option value="">Any</option>
+                        {QUALITY_RATINGS.map((rating) => <option key={rating}>{rating}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Preferred Work Location">
+                      <input
+                        {...register("required_location")}
+                        className="input"
+                        placeholder="e.g. Lagos, Remote"
+                      />
+                    </Field>
+                    <Field label="Proximity">
+                      <input
+                        {...register("required_proximity")}
+                        className="input"
+                        placeholder="e.g. <30km, local only"
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Candidate Track Record">
+                    <textarea
+                      {...register("required_track_record")}
+                      rows={3}
+                      className="input resize-none"
+                      placeholder="Add any important performance or reliability expectations here"
+                    />
+                  </Field>
                 </div>
               )}
             </div>
@@ -339,7 +523,9 @@ function TagInput({ label, hint, tags, onChange }: {
   }
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      {label ? (
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      ) : null}
       <div className="flex gap-2">
         <input value={input} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
