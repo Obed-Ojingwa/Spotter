@@ -259,7 +259,7 @@ export default function PostJobPage() {
               >
                 <div className="flex items-center gap-3">
                   <span className="bg-gray-200 text-gray-600 text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">4</span>
-                  <span className="font-bold text-gray-900">Candidate Preferences</span>
+                  <span className="font-bold text-gray-900">Candidate Match Preferences</span>
                   <span className="text-xs text-gray-400">(optional)</span>
                 </div>
                 <span className={cn("text-gray-400 transition-transform text-lg", showDemog && "rotate-180")}>›</span>
