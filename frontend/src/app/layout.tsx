@@ -1,44 +1,107 @@
-// C:\Users\Melody\Documents\Spotter\frontend\src\app\layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "react-hot-toast";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SPOTTER – Talent Matching Platform",
-  description: "Connect talent with opportunity through intelligent matching",
+  title: "SPOTTER - Job Recruitment Platform",
+  description: "AI-powered job matching platform for African talent",
+  manifest: "/manifest.json",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SPOTTER",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+    other: [
+      {
+        rel: "apple-touch-icon",
+        url: "/apple-touch-icon.png",
+      },
+    ],
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_NG",
+    url: "https://spotter-web-app.vercel.app",
+    siteName: "SPOTTER",
+    title: "SPOTTER - Job Recruitment Platform",
+    description: "Find your perfect job match with AI-powered matching",
+  },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <head>
         <meta name="theme-color" content="#b91c1c" />
-        {/* iOS */}
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="SPOTTER" />
-        
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        {/* Favicons */}
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="shortcut icon" href="/favicon.ico" />
+        <meta name="msapplication-TileColor" content="#b91c1c" />
+        <meta name="msapplication-config" content="/browserconfig.xml" />
       </head>
-      <body className={inter.className}>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: { fontSize: "14px" },
-            success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
-            error:   { iconTheme: { primary: "#CC0000", secondary: "#fff" } },
-          }}
-        />
+      <body>
         {children}
       </body>
     </html>
   );
 }
+
+
+
+
+
+// // C:\Users\Melody\Documents\Spotter\frontend\src\app\layout.tsx
+// import type { Metadata } from "next";
+// import { Inter } from "next/font/google";
+// import "./globals.css";
+// import { Toaster } from "react-hot-toast";
+
+// const inter = Inter({ subsets: ["latin"] });
+
+// export const metadata: Metadata = {
+//   title: "SPOTTER – Talent Matching Platform",
+//   description: "Connect talent with opportunity through intelligent matching",
+// };
+
+// export default function RootLayout({ children }: { children: React.ReactNode }) {
+//   return (
+//     <html lang="en">
+//       <head>
+//         <meta name="theme-color" content="#b91c1c" />
+//         {/* iOS */}
+//         <meta name="apple-mobile-web-app-capable" content="yes" />
+//         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+//         <meta name="apple-mobile-web-app-title" content="SPOTTER" />
+        
+//         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+//         {/* Favicons */}
+//         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+//         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+//         <link rel="shortcut icon" href="/favicon.ico" />
+//       </head>
+//       <body className={inter.className}>
+//         <Toaster
+//           position="top-right"
+//           toastOptions={{
+//             duration: 4000,
+//             style: { fontSize: "14px" },
+//             success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
+//             error:   { iconTheme: { primary: "#CC0000", secondary: "#fff" } },
+//           }}
+//         />
+//         {children}
+//       </body>
+//     </html>
+//   );
+// }
