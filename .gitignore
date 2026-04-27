@@ -1,3 +1,10 @@
+# PWA generated files
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+
+
 backend/seed_admins.py 
 backend/seed_org.py
 backend/seed_seekers.py
