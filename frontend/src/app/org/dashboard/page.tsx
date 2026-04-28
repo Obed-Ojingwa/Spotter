@@ -784,13 +784,8 @@ function OrgJobRow({
         {job.status === "active" && onRequestMatches && (
           <button
             onClick={() => onRequestMatches(job.id)}
-            disabled={isRequestingMatches || (freeMatchesLeft ?? 0) <= 0}
+            disabled={isRequestingMatches}
             className="flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={
-              (freeMatchesLeft ?? 0) <= 0
-                ? "Free trial matches exhausted. Upgrade to unlock more."
-                : undefined
-            }
           >
             {isRequestingMatches ? (
               <>

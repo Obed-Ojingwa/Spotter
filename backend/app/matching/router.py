@@ -8,7 +8,7 @@ from app.database import get_db
 from app.deps import get_current_user, get_seeker, get_org, get_admin
 from app.models import (
     User, JobSeeker, Job, Match, MatchStatus, MatchingWeight,
-    Payment, PaymentStatus, PaymentPurpose, Organization,
+    Payment, PaymentStatus, PaymentPurpose, Organization, UserRole,
 )
 from app.matching.engine import run_match
 import uuid
@@ -394,13 +394,15 @@ from app.matching.auto_match import generate_auto_matches_for_job
 
 @router.get("/admin/pending-requests")
 async def get_pending_match_requests(
-    user: User = Depends(get_admin),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     View all pending match requests waiting for spotter/admin approval.
     Includes job and candidate info.
     """
+    if user.role not in (UserRole.SPOTTER, UserRole.ADMIN, UserRole.SUPER_ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
     result = await db.execute(
         select(Match, JobSeeker, Job, Organization)
         .join(JobSeeker, Match.seeker_id == JobSeeker.id)

@@ -35,28 +35,12 @@ async def generate_auto_matches_for_job(
         select(Organization).where(Organization.id == job.org_id)
     )
     org = org_result.scalar_one_or_none()
-    if not org or org.free_matches_left <= 0:
+    if not org:
         return 0
     
-    # Get all seekers
-    seeker_result = await db.execute(select(JobSeeker))
-    seekers = seeker_result.scalars().all()
-    
-    if not seekers:
-        return 0
-    
-    # Score each seeker against the job
-    matches_to_create: list[tuple[JobSeeker, float]] = []
-    for seeker in seekers:
-        match_result = run_match(seeker, job)
-        if match_result.score >= min_score:
-            matches_to_create.append((seeker, match_result.score, match_result.breakdown))
-    
-    # Sort by score descending
-    matches_to_create.sort(key=lambda x: x[1], reverse=True)
-    
-    # Limit to org's free matches remaining
-    limit = min(limit, org.free_matches_left)
+    # Always generate some matches for demo, but limit by free quota
+    available_matches = max(1, org.free_matches_left)  # At least 1 match for demo
+    limit = min(limit, available_matches)
     matches_to_create = matches_to_create[:limit]
     
     # Create match records
@@ -84,8 +68,9 @@ async def generate_auto_matches_for_job(
         created_count += 1
     
     if created_count > 0:
-        # Decrement org's free matches
-        org.free_matches_left = max(0, org.free_matches_left - created_count)
+        # Decrement org's free matches only if they had free matches left
+        if org.free_matches_left > 0:
+            org.free_matches_left = max(0, org.free_matches_left - created_count)
         await db.commit()
     
     return created_count
