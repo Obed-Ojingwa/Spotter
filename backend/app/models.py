@@ -157,7 +157,7 @@ class Organization(Base):
     state: Mapped[Optional[str]] = mapped_column(String(100))
     logo_url: Mapped[Optional[str]] = mapped_column(String(500))
     free_posts_left: Mapped[int] = mapped_column(Integer, default=2)
-    free_matches_left: Mapped[int] = mapped_column(Integer, default=2)
+    free_matches_left: Mapped[int] = mapped_column(Integer, default=4)  # Free trial: 4 matches
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

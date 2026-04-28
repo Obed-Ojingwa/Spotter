@@ -64,7 +64,9 @@ export default function OrgDashboard() {
   const [profile, setProfile] = useState<OrgProfile | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [matchCounts, setMatchCounts] = useState<Record<string, number>>({});
+  const [matchRequestsStatus, setMatchRequestsStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [requestingMatches, setRequestingMatches] = useState<Record<string, boolean>>({});
 
   // Auth guard
   useEffect(() => {
@@ -87,8 +89,11 @@ export default function OrgDashboard() {
       orgApi.getJobMatchCounts().catch(() => ({
         data: { counts: {} as Record<string, number> },
       })),
+      api.get("/matching/org/requests-status").catch(() => ({
+        data: null,
+      })),
     ])
-      .then(([profileRes, jobsRes, countsRes]) => {
+      .then(([profileRes, jobsRes, countsRes, statusRes]) => {
         const fetchedJobs = (jobsRes.data.jobs ?? []).map((job: Job) => ({
           ...job,
           daysAgo: Math.floor(
@@ -99,6 +104,7 @@ export default function OrgDashboard() {
         setProfile(profileRes.data);
         setJobs(fetchedJobs);
         setMatchCounts(countsRes.data?.counts ?? {});
+        setMatchRequestsStatus(statusRes.data);
       })
       .catch(() => toast.error("Failed to load dashboard"))
       .finally(() => setLoading(false));
@@ -111,6 +117,23 @@ export default function OrgDashboard() {
       toast.success("Job closed.");
     } catch {
       toast.error("Could not close job.");
+    }
+  }
+
+  async function handleRequestMatches(jobId: string) {
+    try {
+      setRequestingMatches((prev) => ({ ...prev, [jobId]: true }));
+      const res = await api.post("/matching/org/request-matches", { job_id: jobId });
+      toast.success(res.data.message);
+      // Refresh status
+      const statusRes = await api.get("/matching/org/requests-status");
+      setMatchRequestsStatus(statusRes.data);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      const detailMsg = typeof detail === "string" ? detail : detail?.message || "Failed to request matches";
+      toast.error(detailMsg);
+    } finally {
+      setRequestingMatches((prev) => ({ ...prev, [jobId]: false }));
     }
   }
 
@@ -467,17 +490,81 @@ export default function OrgDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {jobs.map((job) => (
-                      <OrgJobRow
-                        key={job.id}
-                        job={job}
-                        matchCount={matchCounts[job.id] ?? 0}
-                        onClose={() => handleCloseJob(job.id)}
-                      />
-                    ))}
+                    {jobs.map((job) => {
+                      const jobStatus = matchRequestsStatus?.jobs?.find(
+                        (j: any) => j.job_id === job.id
+                      );
+                      return (
+                        <OrgJobRow
+                          key={job.id}
+                          job={job}
+                          matchCount={matchCounts[job.id] ?? 0}
+                          onClose={() => handleCloseJob(job.id)}
+                          onRequestMatches={handleRequestMatches}
+                          isRequestingMatches={requestingMatches[job.id] ?? false}
+                          matchRequestStatus={jobStatus}
+                          freeMatchesLeft={matchRequestsStatus?.free_matches_left ?? 0}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>
+
+              {matchRequestsStatus && (
+                <div className="card space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-bold text-gray-900 text-lg">Match Requests</h2>
+                    <span className="rounded-full bg-red-100 text-red-700 px-3 py-1 text-sm font-semibold">
+                      {matchRequestsStatus.free_matches_left}/{4} free matches left
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {matchRequestsStatus.jobs && matchRequestsStatus.jobs.length > 0 ? (
+                      matchRequestsStatus.jobs.map((jobStatus: any) => {
+                        const job = jobs.find((j) => j.id === jobStatus.job_id);
+                        return (
+                          <div
+                            key={jobStatus.job_id}
+                            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                          >
+                            <div>
+                              <h3 className="font-semibold text-gray-900">
+                                {job?.title || "Job"}
+                              </h3>
+                              <div className="flex items-center gap-4 mt-1 text-sm">
+                                <span className="flex items-center gap-1">
+                                  <CheckCircle
+                                    size={14}
+                                    className="text-green-600"
+                                  />
+                                  <span className="text-gray-600">
+                                    {jobStatus.approved_count || 0} approved
+                                  </span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock size={14} className="text-yellow-600" />
+                                  <span className="text-gray-600">
+                                    {jobStatus.pending_count || 0} pending review
+                                  </span>
+                                </span>
+                                <span className="text-gray-500">
+                                  {jobStatus.total_generated || 0} generated
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-gray-500 text-sm">
+                        No match requests yet. Post a job to auto-generate matches.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="card bg-red-50 border-red-100 space-y-2">
                 <h3 className="font-bold text-red-900 text-sm">How hiring works on Spotter</h3>
@@ -617,10 +704,18 @@ function OrgJobRow({
   job,
   matchCount,
   onClose,
+  onRequestMatches,
+  isRequestingMatches,
+  matchRequestStatus,
+  freeMatchesLeft,
 }: {
   job: Job;
   matchCount: number;
   onClose: () => void;
+  onRequestMatches?: (jobId: string) => Promise<void>;
+  isRequestingMatches?: boolean;
+  matchRequestStatus?: any;
+  freeMatchesLeft?: number;
 }) {
   const [confirming, setConfirming] = useState(false);
   const daysAgo = job.daysAgo ?? 0;
@@ -685,6 +780,31 @@ function OrgJobRow({
         >
           Manage
         </Link>
+
+        {job.status === "active" && onRequestMatches && (
+          <button
+            onClick={() => onRequestMatches(job.id)}
+            disabled={isRequestingMatches || (freeMatchesLeft ?? 0) <= 0}
+            className="flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={
+              (freeMatchesLeft ?? 0) <= 0
+                ? "Free trial matches exhausted. Upgrade to unlock more."
+                : undefined
+            }
+          >
+            {isRequestingMatches ? (
+              <>
+                <Loader2 size={12} className="animate-spin" />
+                Requesting...
+              </>
+            ) : (
+              <>
+                <Users size={12} />
+                Request Matches
+              </>
+            )}
+          </button>
+        )}
 
         {job.status === "active" &&
           (confirming ? (

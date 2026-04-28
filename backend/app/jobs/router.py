@@ -1,6 +1,6 @@
 # C:\Users\Melody\Documents\Spotter\backend\app\jobs\router.py
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from pydantic import BaseModel
@@ -11,6 +11,7 @@ from app.database import get_db
 from app.deps import get_current_user, get_org, get_agent, get_admin
 from app.models import User, UserRole, Job, JobStatus, Organization, Agent, Payment, PaymentStatus, PaymentPurpose
 from app.jobs.search import index_job, remove_job, search_jobs
+from app.matching.auto_match import generate_auto_matches_for_job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -144,10 +145,11 @@ async def get_job(job_id: str, db: AsyncSession = Depends(get_db)):
 @router.post("", status_code=201)
 async def create_job(
     body: JobCreate,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Org or Agent can post a job. Free quota or requires payment."""
+    """Org or Agent can post a job. Free quota or requires payment. Auto-triggers matching."""
     if user.role not in (UserRole.ORG, UserRole.AGENT, UserRole.ADMIN, UserRole.SUPER_ADMIN):
         raise HTTPException(status_code=403, detail="Only organizations and agents can post jobs")
 
@@ -216,6 +218,10 @@ async def create_job(
 
     # Index in Meilisearch (non-blocking — fails silently if unavailable)
     index_job(job)
+
+    # Auto-trigger matching in background for org jobs
+    if org_id:
+        background_tasks.add_task(generate_auto_matches_for_job, job, db)
 
     return _job_detail(job)
 
