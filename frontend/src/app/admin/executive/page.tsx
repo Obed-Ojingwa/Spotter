@@ -159,6 +159,7 @@ export default function ExecutiveAdminDashboard() {
               </div>
               {[
                 { href: "/admin/users?role=admin",   icon: Users,      label: "View admin accounts",  sub: "List and monitor all admins"      },
+                { href: "/admin/jobs",                icon: Briefcase,  label: "Pending jobs",        sub: "Approve or edit new jobs"         },
                 { href: "/admin/agents",              icon: UserCheck,  label: "Monitor agents",       sub: "Agent activity and points"         },
                 { href: "/admin/users?role=spotter",  icon: Eye,        label: "Monitor spotters",     sub: "Review queue performance"         },
                 { href: "/admin/users?role=org",      icon: Building2,  label: "Approve organisations",sub: "Pending org account approvals"    },

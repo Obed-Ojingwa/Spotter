@@ -80,14 +80,14 @@ export default function AdminOverviewPage() {
               label: "Pending Approvals",
               value: pendingCount,
               color: "bg-yellow-100 text-yellow-700",
-              href: "/admin/approval",
+              href: "/admin/jobs",
             },
             {
               icon: Zap,
               label: "Auto-Matched Candidates",
               value: autoMatchedCount,
               color: "bg-blue-100 text-blue-700",
-              href: "/admin/approval",
+              href: "/admin/jobs",
             },
             {
               icon: Users,
@@ -131,7 +131,7 @@ export default function AdminOverviewPage() {
           {/* Approval Queue */}
           <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Approval Queue</h2>
+              <h2 className="text-xl font-bold text-gray-900">Pending Jobs</h2>
               {pendingCount > 0 && (
                 <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
                   {pendingCount} Pending
@@ -152,7 +152,7 @@ export default function AdminOverviewPage() {
                   .map((job) => (
                     <Link
                       key={job.id}
-                      href="/admin/approval"
+                      href="/admin/jobs"
                       className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
                     >
                       <div>
@@ -168,10 +168,10 @@ export default function AdminOverviewPage() {
             )}
 
             <Link
-              href="/admin/approval"
+              href="/admin/jobs"
               className="mt-4 block text-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              View All Approvals
+              View All Pending Jobs
             </Link>
           </div>
 
@@ -180,7 +180,7 @@ export default function AdminOverviewPage() {
             <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
             <div className="space-y-2">
               {[
-                { label: "Review Jobs", href: "/admin/approval", icon: "📋" },
+                { label: "Review Jobs", href: "/admin/jobs", icon: "📋" },
                 { label: "Manage Users", href: "/admin/agents", icon: "👥" },
                 { label: "Grant Points", href: "/admin/promotions", icon: "⭐" },
                 { label: "View Reports", href: "#", icon: "📊" },
@@ -388,8 +388,7 @@ export default function AdminOverviewPage() {
 //                   <Wrench size={16} className="text-green-700" />
 //                   <h3 className="font-bold text-gray-900 text-sm">Operations</h3>
 //                 </div>
-//                 {[
-//                   { href: "/admin/matches", icon: Target, label: "Match Review", sub: "Approve or reject seeker matches" },
+//                 {[                  { href: "/admin/jobs", icon: Briefcase, label: "Pending Jobs", sub: "Approve or edit new jobs" },//                   { href: "/admin/matches", icon: Target, label: "Match Review", sub: "Approve or reject seeker matches" },
 //                   { href: "/admin/users",      icon: Users,      label: "Manage users",    sub: "View all accounts"       },
 //                   { href: "/admin/agents",     icon: UserCheck,  label: "Manage agents",   sub: "Points & activity"       },
 //                   { href: "/admin/promotions", icon: Star,       label: "Promotions",      sub: "Bonus point campaigns"   },

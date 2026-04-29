@@ -142,13 +142,22 @@ export const adminApi = {
   approvePayout:  (id: string)    => api.post(`/admin/payments/${id}/approve-payout`),
   getAnalytics:   ()              => api.get("/admin/analytics"),
 
-  // Inside adminApi object, add:
   listMatches: (params?: { status?: string; page?: number; limit?: number }) =>
     api.get("/admin/matches", { params }),
   approveMatch: (match_id: string, notes?: string) =>
     api.post(`/admin/matches/${match_id}/approve`, { notes }),
   rejectMatch: (match_id: string, notes?: string) =>
     api.post(`/admin/matches/${match_id}/reject`, { notes }),
+
+  // Pending jobs approval workflow
+  listPendingJobs: (params?: object) =>
+    api.get("/admin/jobs/pending", { params }),
+  approveJob: (job_id: string, notes?: string) =>
+    api.post(`/admin/jobs/${job_id}/approve`, { notes }),
+  rejectJob: (job_id: string, reason?: string) =>
+    api.post(`/admin/jobs/${job_id}/reject`, { notes: reason }),
+  editPendingJob: (job_id: string, data: object) =>
+    api.put(`/admin/jobs/${job_id}/edit`, data),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────
