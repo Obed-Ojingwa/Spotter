@@ -115,6 +115,29 @@ def _create_certificate_pdf(match, seeker, job) -> str:
     return f"/uploads/{filename}"
 
 
+@celery_app.task(name="app.tasks.matching_tasks.auto_match_job", bind=True, max_retries=3)
+def auto_match_job(self, job_id: str):
+    """Auto-generate matches for a newly posted job."""
+    try:
+        _run_async(_auto_match_job_async(job_id))
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=60)
+
+
+async def _auto_match_job_async(job_id: str):
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy import select
+    from app.database import AsyncSessionLocal
+    from app.models import Job
+    from app.matching.auto_match import generate_auto_matches_for_job
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Job).where(Job.id == job_id))
+        job = result.scalar_one_or_none()
+        if job:
+            await generate_auto_matches_for_job(job, db)
+
+
 @celery_app.task(name="app.tasks.matching_tasks.propagate_referral_points", bind=True)
 def propagate_referral_points(self, agent_id: str, base_points: float, reason: str, reference_id: str):
     """Propagate points up the referral chain (max 5 levels)."""

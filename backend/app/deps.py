@@ -15,6 +15,7 @@ from app.rbac.deps import (
     get_spotter,
     get_admin,
     get_super_admin,
+    get_job_approver,
 )
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "get_spotter",
     "get_admin",
     "get_super_admin",
+    "get_job_approver",
 ]

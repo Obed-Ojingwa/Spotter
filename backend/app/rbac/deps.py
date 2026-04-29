@@ -152,3 +152,5 @@ get_agent       = require_role(LegacyUserRole.AGENT)
 get_spotter     = require_role(LegacyUserRole.SPOTTER)
 get_admin       = require_role(LegacyUserRole.ADMIN, LegacyUserRole.SUPER_ADMIN)
 get_super_admin = require_role(LegacyUserRole.SUPER_ADMIN)
+# Job approval requires Spotter, Admin, or Super Admin role
+get_job_approver = require_role(LegacyUserRole.SPOTTER, LegacyUserRole.ADMIN, LegacyUserRole.SUPER_ADMIN)

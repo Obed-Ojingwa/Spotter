@@ -27,6 +27,7 @@ class JobStatus(str, enum.Enum):
     CLOSED = "closed"
     EXPIRED = "expired"
     DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
 
 
 class MatchStatus(str, enum.Enum):
@@ -254,6 +255,12 @@ class Job(Base):
     status: Mapped[JobStatus] = mapped_column(SAEnum(JobStatus), default=JobStatus.ACTIVE)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # Job approval workflow fields
+    approved_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    rejected_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    rejection_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     organization: Mapped[Optional["Organization"]] = relationship(back_populates="jobs", foreign_keys=[org_id])
     applications: Mapped[list["Application"]] = relationship(back_populates="job")

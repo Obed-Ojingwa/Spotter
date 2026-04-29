@@ -5,11 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 from app.database import get_db
-from app.deps import get_admin, get_super_admin
+from app.deps import get_admin, get_super_admin, get_job_approver
 from app.models import (
     User, UserRole, JobSeeker, Organization, Agent, Spotter,
-    Job, Match, MatchStatus, Payment, PaymentStatus, AgentPoint
+    Job, JobStatus, Match, MatchStatus, Payment, PaymentStatus, AgentPoint
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -476,5 +477,178 @@ async def admin_reject_match(
         "match_id": match_id,
         "status": "spotter_rejected",
         "message": "Match rejected.",
+    }
+
+
+# ── Job Approval Workflow ──────────────────────────────────────────────────
+
+# I go revert if e no work asap
+
+@router.get("/jobs/pending")
+async def list_pending_jobs(
+    admin: User = Depends(get_job_approver),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all jobs pending approval. Only admins, super admins, and spotters can view."""
+    result = await db.execute(
+        select(Job)
+        .where(Job.status == JobStatus.PENDING_APPROVAL)
+        .order_by(Job.created_at.desc())
+    )
+    pending_jobs = result.scalars().all()
+
+    return {
+        "count": len(pending_jobs),
+        "jobs": [
+            {
+                "id": str(job.id),
+                "title": job.title,
+                "description": job.description[:200] + "..." if len(job.description) > 200 else job.description,
+                "org_id": str(job.org_id) if job.org_id else None,
+                "agent_id": str(job.agent_id) if job.agent_id else None,
+                "poster_type": job.poster_type,
+                "city": job.city,
+                "state": job.state,
+                "employment_type": job.employment_type,
+                "salary_min": job.salary_min,
+                "salary_max": job.salary_max,
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+            }
+            for job in pending_jobs
+        ],
+    }
+
+
+class JobApprovalBody(BaseModel):
+    """Request body for job approval/rejection."""
+    notes: Optional[str] = None
+
+
+@router.post("/jobs/{job_id}/approve")
+async def admin_approve_job(
+    job_id: str,
+    body: JobApprovalBody,
+    admin: User = Depends(get_job_approver),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin approves a job → status becomes ACTIVE. Triggers auto-matching."""
+    from app.tasks.matching_tasks import auto_match_job
+
+    result = await db.execute(select(Job).where(Job.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status != JobStatus.PENDING_APPROVAL:
+        raise HTTPException(status_code=409, detail="Job is not pending approval")
+
+    job.status = JobStatus.ACTIVE
+    job.approved_by = admin.id
+    job.approved_at = datetime.utcnow()
+
+    await db.commit()
+
+    # Index in Meilisearch (non-blocking — fails silently if unavailable)
+    try:
+        from app.jobs.search import index_job
+        index_job(job)
+    except Exception:
+        pass  # Non-blocking failure
+
+    # Auto-trigger matching for org jobs
+    if job.org_id:
+        try:
+            auto_match_job.delay(str(job.id))
+        except Exception:
+            pass  # Celery might not be running — don't block approval
+
+    return {
+        "job_id": job_id,
+        "status": "active",
+        "approved_at": job.approved_at.isoformat(),
+        "message": "Job approved and published.",
+    }
+
+
+@router.post("/jobs/{job_id}/reject")
+async def admin_reject_job(
+    job_id: str,
+    body: JobApprovalBody,
+    admin: User = Depends(get_job_approver),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin rejects a job → status remains PENDING_APPROVAL but marked as rejected."""
+    result = await db.execute(select(Job).where(Job.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status != JobStatus.PENDING_APPROVAL:
+        raise HTTPException(status_code=409, detail="Job is not pending approval")
+
+    job.rejected_by = admin.id
+    job.rejection_reason = body.notes
+    # Keep status as PENDING_APPROVAL or mark as DRAFT?
+    # For now, keep as PENDING_APPROVAL so it shows in the pending list
+
+    await db.commit()
+
+    return {
+        "job_id": job_id,
+        "status": "pending_approval",
+        "rejected_at": datetime.utcnow().isoformat(),
+        "message": "Job rejected.",
+    }
+
+
+class JobEditBody(BaseModel):
+    """Request body for editing pending jobs."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    employment_type: Optional[str] = None
+    work_mode: Optional[str] = None
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    required_skills: Optional[list] = None
+    required_tech_stack: Optional[list] = None
+    required_experience_years: Optional[int] = None
+    required_education: Optional[str] = None
+
+
+@router.put("/jobs/{job_id}/edit")
+async def admin_edit_job(
+    job_id: str,
+    body: JobEditBody,
+    admin: User = Depends(get_job_approver),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin edits a pending job before approval."""
+    result = await db.execute(select(Job).where(Job.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status != JobStatus.PENDING_APPROVAL:
+        raise HTTPException(status_code=409, detail="Can only edit jobs pending approval")
+
+    # Update only provided fields
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(job, field, value)
+
+    await db.commit()
+
+    return {
+        "job_id": job_id,
+        "message": "Job updated successfully.",
+        "job": {
+            "title": job.title,
+            "description": job.description[:200] + "..." if len(job.description) > 200 else job.description,
+            "city": job.city,
+            "state": job.state,
+        }
     }
 

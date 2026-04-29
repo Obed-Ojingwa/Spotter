@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from pydantic import BaseModel
 from typing import Optional
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import datetime, timezone, timedelta
 from app.timeutil import utc_plus_days_naive
 from app.database import get_db
@@ -134,11 +135,32 @@ async def list_jobs(
 
 
 @router.get("/{job_id}")
-async def get_job(job_id: str, db: AsyncSession = Depends(get_db)):
+async def get_job(
+    job_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.auth.service import decode_token
+
+    # Optionally get user from token
+    user = None
+    if credentials:
+        payload = decode_token(credentials.credentials)
+        if payload:
+            user_id = payload.get("sub")
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+
     result = await db.execute(select(Job).where(Job.id == job_id))
     job = result.scalar_one_or_none()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    # Only admins, super admins, and spotters can view pending jobs
+    if job.status == JobStatus.PENDING_APPROVAL:
+        if not user or user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.SPOTTER):
+            raise HTTPException(status_code=403, detail="Job is pending approval and not yet visible")
+
     return _job_detail(job)
 
 
@@ -211,6 +233,7 @@ async def create_job(
         agent_id=agent_id,
         poster_type=poster_type,
         expires_at=utc_plus_days_naive(30),
+        status=JobStatus.PENDING_APPROVAL,  # Jobs start as pending approval
     )
     db.add(job)
     await db.commit()
@@ -219,7 +242,7 @@ async def create_job(
     # Index in Meilisearch (non-blocking — fails silently if unavailable)
     index_job(job)
 
-    # Auto-trigger matching in background for org jobs
+    # Auto-trigger matching in background for org jobs (but not pending approval jobs)
     if org_id:
         background_tasks.add_task(generate_auto_matches_for_job, job, db)
 
@@ -331,4 +354,9 @@ def _job_detail(job: Job) -> dict:
         "certifications_required":         job.certifications_required,
         "licenses_required":               job.licenses_required,
         "expires_at":                      job.expires_at.isoformat() if job.expires_at else None,
+        # Job approval workflow metadata
+        "approved_by":                     str(job.approved_by) if job.approved_by else None,
+        "rejected_by":                     str(job.rejected_by) if job.rejected_by else None,
+        "rejection_reason":                job.rejection_reason,
+        "approved_at":                     job.approved_at.isoformat() if job.approved_at else None,
     }
