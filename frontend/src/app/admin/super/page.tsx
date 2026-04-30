@@ -9,7 +9,7 @@ import {
   Shield, Users, Building2, UserCheck, ShieldCheck,
   Target, DollarSign, Key, Lock, Unlock, RefreshCw,
   TrendingUp, ArrowRight, Loader2, AlertCircle, Gift,
-  Settings, Database, Activity, Crown
+  Settings, Database, Activity, Crown, Briefcase
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminApi } from "@/lib/api";
@@ -177,11 +177,12 @@ export default function SuperAdminDashboard() {
               </div>
               {[
                 { href: "/admin/matches", icon: Target, label: "Match Review", sub: "Approve or reject seeker matches" },
-                { href: "/admin/users",      icon: Users,       label: "Manage all users",         sub: "Create, edit, disable any account"  },
-                { href: "/admin/agents",     icon: UserCheck,   label: "Manage agents",            sub: "Points, referrals, promotions"      },
-                { href: "/admin/promotions", icon: Gift,        label: "Run promotions",           sub: "Grant bonus points to all agents"   },
-                { href: "/admin/reports",    icon: TrendingUp,  label: "Export reports",           sub: "Full platform CSV exports"          },
-                { href: "/api/docs#/rbac",   icon: Lock,        label: "RBAC API (advanced)",      sub: "Direct permission management"       },
+                { href: "/admin/jobs",    icon: Briefcase, label: "Pending jobs", sub: "Review and approve job postings" },
+                { href: "/admin/users",   icon: Users,       label: "Manage all users",         sub: "Create, edit, disable any account"  },
+                { href: "/admin/agents",  icon: UserCheck,   label: "Manage agents",            sub: "Points, referrals, promotions"      },
+                { href: "/admin/promotions", icon: Gift,      label: "Run promotions",           sub: "Grant bonus points to all agents"   },
+                { href: "/admin/reports",    icon: TrendingUp, label: "Export reports",           sub: "Full platform CSV exports"          },
+                { href: "/api/docs#/rbac",   icon: Lock,      label: "RBAC API (advanced)",      sub: "Direct permission management"       },
               ].map(({ href, icon: Icon, label, sub }) => (
                 <Link key={href} href={href}
                   className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-red-50 group transition-colors">

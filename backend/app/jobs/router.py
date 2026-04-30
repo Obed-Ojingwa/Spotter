@@ -239,12 +239,9 @@ async def create_job(
     await db.commit()
     await db.refresh(job)
 
-    # Index in Meilisearch (non-blocking — fails silently if unavailable)
-    index_job(job)
-
-    # Auto-trigger matching in background for org jobs (but not pending approval jobs)
-    if org_id:
-        background_tasks.add_task(generate_auto_matches_for_job, job, db)
+    # Do not index or auto-match jobs before they are approved.
+    # Public search and matching should only include ACTIVE postings.
+    # Indexing and matching are handled after approval in admin_approve_job.
 
     return _job_detail(job)
 

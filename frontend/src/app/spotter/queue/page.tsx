@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   CheckCircle, XCircle, Loader2, ClipboardList,
   User, Briefcase, MapPin, GraduationCap, Target
@@ -118,8 +119,16 @@ export default function SpotterQueuePage() {
                 Review each match carefully before approving or rejecting
               </p>
             </div>
-            {stats && (
-              <div className="flex gap-4 text-center">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Link
+                href="/admin/jobs"
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-red-300 hover:text-red-900 transition-colors"
+              >
+                <Briefcase size={16} />
+                Review pending jobs
+              </Link>
+              {stats && (
+                <div className="flex gap-4 text-center">
                 <div className="bg-yellow-50 border border-yellow-100 rounded-xl px-4 py-2.5">
                   <p className="text-xl font-black text-yellow-700">{stats.pending_in_queue}</p>
                   <p className="text-xs text-yellow-600">Pending</p>
