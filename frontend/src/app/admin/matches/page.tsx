@@ -410,7 +410,7 @@ export default function AdminMatchesPage() {
                               {isExpanded ? "Less" : "Details"}
                             </button>
                             {match.seeker.cv_url && (
-                              <a href={`http://localhost:8000${match.seeker.cv_url}`}
+                              <a href={`https://spotter-w42e.onrender.com/${match.seeker.cv_url}`}
                                 target="_blank" rel="noreferrer"
                                 className="flex items-center gap-1 text-xs text-red-700 hover:underline">
                                 <FileText size={12} /> CV
