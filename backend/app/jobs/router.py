@@ -156,10 +156,10 @@ async def get_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Only admins, super admins, and spotters can view pending jobs
-    if job.status == JobStatus.PENDING_APPROVAL:
-        if not user or user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.SPOTTER):
-            raise HTTPException(status_code=403, detail="Job is pending approval and not yet visible")
+    # # Only admins, super admins, and spotters can view pending jobs
+    # if job.status == JobStatus.PENDING_APPROVAL:
+    #     if not user or user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.SPOTTER):
+    #         raise HTTPException(status_code=403, detail="Job is pending approval and not yet visible")
 
     return _job_detail(job)
 
@@ -233,15 +233,30 @@ async def create_job(
         agent_id=agent_id,
         poster_type=poster_type,
         expires_at=utc_plus_days_naive(30),
-        status=JobStatus.PENDING_APPROVAL,  # Jobs start as pending approval
+        # status=JobStatus.PENDING_APPROVAL,  # Jobs start as pending approval
+        status=JobStatus.ACTIVE,  # Jobs are now immediately active (approval workflow disabled)
     )
     db.add(job)
     await db.commit()
     await db.refresh(job)
 
-    # Do not index or auto-match jobs before they are approved.
-    # Public search and matching should only include ACTIVE postings.
-    # Indexing and matching are handled after approval in admin_approve_job.
+    # # Do not index or auto-match jobs before they are approved.
+    # # Public search and matching should only include ACTIVE postings.
+    # # Indexing and matching are handled after approval in admin_approve_job.
+
+    # Index job in Meilisearch immediately (approval workflow disabled)
+    try:
+        index_job(job)
+    except Exception:
+        pass  # Non-blocking failure
+
+    # Auto-trigger matching for org jobs immediately (approval workflow disabled)
+    if job.org_id:
+        try:
+            from app.matching.auto_match import generate_auto_matches_for_job
+            generate_auto_matches_for_job(str(job.id))
+        except Exception:
+            pass  # Celery might not be running — don't block job creation
 
     return _job_detail(job)
 
