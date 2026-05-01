@@ -148,6 +148,7 @@ class Organization(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True)
+    registered_by_agent_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text)
     industry: Mapped[Optional[str]] = mapped_column(String(100))
@@ -164,6 +165,7 @@ class Organization(Base):
 
     user: Mapped["User"] = relationship(back_populates="org_profile")
     jobs: Mapped[list["Job"]] = relationship(back_populates="organization", foreign_keys="Job.org_id")
+    registered_by_agent: Mapped[Optional["Agent"]] = relationship(foreign_keys=[registered_by_agent_id])
 
 
 class Agent(Base):

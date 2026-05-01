@@ -6,8 +6,88 @@ from app.database import get_db
 from app.deps import get_agent
 from app.models import User, Agent, AgentPoint, Referral, Job, Payment, PaymentPurpose, PaymentStatus, Organization
 from app.config import settings
+import uuid
 
 router = APIRouter(prefix="/agent", tags=["agent"])
+
+
+class RegisterOrganizationRequest(BaseModel):
+    """Request body for agent registering an organization."""
+    email: str
+    password: str
+    name: str
+    description: Optional[str] = None
+    industry: Optional[str] = None
+    website: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+
+
+@router.post("/register-org", status_code=201)
+async def register_organization(
+    body: RegisterOrganizationRequest,
+    user: User = Depends(get_agent),
+    db: AsyncSession = Depends(get_db),
+):
+    """Agent registers an organization on behalf of a client."""
+    from app.auth.service import hash_password, create_access_token, create_refresh_token
+
+    # Check email uniqueness
+    existing = await db.execute(select(User).where(User.email == body.email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Get agent profile
+    result = await db.execute(select(Agent).where(Agent.user_id == user.id))
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent profile not found")
+
+    # Create user for organization
+    org_user = User(
+        email=body.email,
+        password_hash=hash_password(body.password),
+        role=UserRole.ORG,
+    )
+    db.add(org_user)
+    await db.flush()  # get user.id before creating profile
+
+    # Create organization profile with agent reference
+    organization = Organization(
+        user_id=org_user.id,
+        registered_by_agent_id=agent.id,
+        name=body.name,
+        description=body.description,
+        industry=body.industry,
+        website=body.website,
+        phone=body.phone,
+        address=body.address,
+        city=body.city,
+        state=body.state,
+    )
+    db.add(organization)
+
+    # Award agent points for registering an organization
+    agent.points += 5.0
+    db.add(AgentPoint(
+        agent_id=agent.id,
+        delta=5.0,
+        reason="org_registered",
+    ))
+
+    await db.commit()
+
+    # Generate tokens for the organization user
+    token_data = {"sub": str(org_user.id), "role": org_user.role.value}
+    return {
+        "access_token": create_access_token(token_data),
+        "refresh_token": create_refresh_token(token_data),
+        "role": org_user.role.value,
+        "organization_id": str(organization.id),
+        "message": "Organization registered successfully",
+    }
 
 
 @router.get("/dashboard")

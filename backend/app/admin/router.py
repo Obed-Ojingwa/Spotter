@@ -692,3 +692,115 @@ async def admin_reject_match(
 #     }
 
 
+# ── Organization Management (Admin / Executive Admin / Super Admin) ──────────────
+
+@router.get("/organizations")
+async def list_organizations(
+    page: int = 1,
+    limit: int = 50,
+    admin: User = Depends(get_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all organizations with agent registration info.
+    Only admins and super admins can see which agent registered each organization.
+    """
+    from app.models import Agent
+
+    # Check if user has admin privileges to see agent registration info
+    can_see_agent_info = admin.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN)
+
+    stmt = (
+        select(Organization, Agent)
+        .outerjoin(Agent, Organization.registered_by_agent_id == Agent.id)
+        .order_by(Organization.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    # Total count for pagination
+    count_stmt = select(func.count(Organization.id))
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "organizations": [
+            {
+                "id": str(org.id),
+                "name": org.name,
+                "email": org.user.email if hasattr(org, 'user') else None,
+                "description": org.description,
+                "industry": org.industry,
+                "city": org.city,
+                "state": org.state,
+                "is_verified": org.is_verified,
+                "free_posts_left": org.free_posts_left,
+                "free_matches_left": org.free_matches_left,
+                "created_at": org.created_at.isoformat(),
+                # Only show agent registration info to admins and super admins
+                "registered_by_agent": {
+                    "id": str(agent.id),
+                    "name": agent.name,
+                    "email": agent.user.email if hasattr(agent, 'user') else None,
+                } if can_see_agent_info and agent else None,
+            }
+            for org, agent in rows
+        ],
+    }
+
+
+@router.get("/organizations/{org_id}")
+async def get_organization_details(
+    org_id: str,
+    admin: User = Depends(get_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get detailed organization information.
+    Only admins and super admins can see which agent registered the organization.
+    """
+    from app.models import Agent
+
+    # Check if user has admin privileges to see agent registration info
+    can_see_agent_info = admin.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN)
+
+    result = await db.execute(
+        select(Organization, Agent)
+        .outerjoin(Agent, Organization.registered_by_agent_id == Agent.id)
+        .where(Organization.id == org_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    org, agent = row
+
+    return {
+        "id": str(org.id),
+        "name": org.name,
+        "email": org.user.email if hasattr(org, 'user') else None,
+        "description": org.description,
+        "industry": org.industry,
+        "website": org.website,
+        "phone": org.phone,
+        "address": org.address,
+        "city": org.city,
+        "state": org.state,
+        "logo_url": org.logo_url,
+        "is_verified": org.is_verified,
+        "free_posts_left": org.free_posts_left,
+        "free_matches_left": org.free_matches_left,
+        "created_at": org.created_at.isoformat(),
+        # Only show agent registration info to admins and super admins
+        "registered_by_agent": {
+            "id": str(agent.id),
+            "name": agent.name,
+            "email": agent.user.email if hasattr(agent, 'user') else None,
+            "referral_code": agent.referral_code,
+        } if can_see_agent_info and agent else None,
+    }
+
