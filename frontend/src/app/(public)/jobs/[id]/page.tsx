@@ -186,7 +186,7 @@ export default function JobDetailPage() {
   }
 
   const isSeeker = user?.role === "seeker";
-  const uploadsBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+  const uploadsBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://spotter-w42e.onrender.com/api").replace(/\/api\/?$/, "");
   const daysLeft   = job.expires_at
     ? Math.ceil((new Date(job.expires_at).getTime() - Date.now()) / 86400000)
     : null;
