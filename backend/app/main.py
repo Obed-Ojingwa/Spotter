@@ -48,7 +48,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://spotter-web-app.vercel.app"
+    allow_origins=["https://spotter-web-app.vercel.app",
+                   "https://spotter-w42e.onrender.com/api",
                    "http://localhost:3000",
                    "http://localhost:8000",
                    "http://localhost:3000", 
