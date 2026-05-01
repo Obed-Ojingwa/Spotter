@@ -29,9 +29,9 @@ from app.rbac.router import router as rbac_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-create ALL tables (existing + RBAC) on startup
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # # Auto-create ALL tables (existing + RBAC) on startup
+    # async with engine.begin() as conn:
+    #     await conn.run_sync(Base.metadata.create_all)
     os.makedirs(settings.LOCAL_STORAGE_PATH, exist_ok=True)
     yield
     await engine.dispose()

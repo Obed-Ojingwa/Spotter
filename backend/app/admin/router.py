@@ -484,26 +484,65 @@ async def admin_reject_match(
 
 # I go revert if e no work asap
 
+# @router.get("/jobs/pending")
+# async def list_pending_jobs(
+#     admin: User = Depends(get_job_approver),
+#     db: AsyncSession = Depends(get_db),
+# ):
+#     """List all jobs pending approval. Only admins, super admins, and spotters can view."""
+#     result = await db.execute(
+#         select(Job)
+#         .where(Job.status == JobStatus.PENDING_APPROVAL)
+#         .order_by(Job.created_at.desc())
+#     )
+#     pending_jobs = result.scalars().all()
+
+#     return {
+#         "count": len(pending_jobs),
+#         "jobs": [
+#             {
+#                 "id": str(job.id),
+#                 "title": job.title,
+#                 "description": job.description[:200] + "..." if len(job.description) > 200 else job.description,
+#                 "org_id": str(job.org_id) if job.org_id else None,
+#                 "agent_id": str(job.agent_id) if job.agent_id else None,
+#                 "poster_type": job.poster_type,
+#                 "city": job.city,
+#                 "state": job.state,
+#                 "employment_type": job.employment_type,
+#                 "salary_min": job.salary_min,
+#                 "salary_max": job.salary_max,
+#                 "created_at": job.created_at.isoformat() if job.created_at else None,
+#             }
+#             for job in pending_jobs
+#         ],
+#     }
+
+# In admin/router.py — list_pending_jobs response, add org name lookup
+# Replace the existing list_pending_jobs endpoint:
+
 @router.get("/jobs/pending")
 async def list_pending_jobs(
     admin: User = Depends(get_job_approver),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all jobs pending approval. Only admins, super admins, and spotters can view."""
     result = await db.execute(
-        select(Job)
+        select(Job, Organization)
+        .outerjoin(Organization, Job.org_id == Organization.id)
         .where(Job.status == JobStatus.PENDING_APPROVAL)
         .order_by(Job.created_at.desc())
     )
-    pending_jobs = result.scalars().all()
+    rows = result.all()
 
     return {
-        "count": len(pending_jobs),
+        "count": len(rows),
         "jobs": [
             {
                 "id": str(job.id),
                 "title": job.title,
+                "company": org.name if org else None,  # ✅ Now matches frontend PendingJob.company
                 "description": job.description[:200] + "..." if len(job.description) > 200 else job.description,
+                "status": job.status.value,
                 "org_id": str(job.org_id) if job.org_id else None,
                 "agent_id": str(job.agent_id) if job.agent_id else None,
                 "poster_type": job.poster_type,
@@ -514,7 +553,7 @@ async def list_pending_jobs(
                 "salary_max": job.salary_max,
                 "created_at": job.created_at.isoformat() if job.created_at else None,
             }
-            for job in pending_jobs
+            for job, org in rows
         ],
     }
 
