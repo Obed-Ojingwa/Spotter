@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 const getAssetUrl = (path?: string) => {
   if (!path) return undefined;
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const apiRoot = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+  const apiRoot = (process.env.NEXT_PUBLIC_API_URL || "https://spotter-w42e.onrender.com/api").replace(/\/api\/?$/, "");
   return `${apiRoot}${path}`;
 };
 

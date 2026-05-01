@@ -402,7 +402,7 @@ export default function SeekerProfilePage() {
             </label>
             {cvUrl && (
               <a
-                href={`${(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api").replace(/\/api\/?$/, "")}${cvUrl}`}
+                href={`${(process.env.NEXT_PUBLIC_API_URL ?? "https://spotter-w42e.onrender.com/api").replace(/\/api\/?$/, "")}${cvUrl}`}
                 target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-700 hover:underline"
               >
