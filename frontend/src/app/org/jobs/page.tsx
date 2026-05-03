@@ -3,7 +3,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { CheckCircle2, Clock, AlertCircle, Zap, ExternalLink } from "lucide-react";
@@ -13,7 +13,7 @@ interface OrgJob {
   id: string;
   title: string;
   description: string;
-  status: "pending_approval" | "approved" | "rejected" | "published";
+  status: "active" | "closed" | "expired" | "draft";
   created_at: string;
   approved_at?: string;
   rejected_reason?: string;
@@ -26,12 +26,12 @@ export default function OrgJobsPage() {
   const { user, isLoggedIn } = useAuthStore();
   const [jobs, setJobs] = useState<OrgJob[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">(
+  const [filter, setFilter] = useState<"all" | "active" | "closed" | "expired">(
     "all"
   );
 
   useEffect(() => {
-    if (!isLoggedIn() || user?.role !== "organization") {
+    if (!isLoggedIn() || user?.role !== "org") {
       router.push("/login");
       return;
     }
@@ -57,43 +57,41 @@ export default function OrgJobsPage() {
 
   const stats = {
     total: jobs.length,
-    pending: jobs.filter((j) => j.status === "pending_approval").length,
-    approved: jobs.filter(
-      (j) => j.status === "approved" || j.status === "published"
-    ).length,
-    rejected: jobs.filter((j) => j.status === "rejected").length,
+    active: jobs.filter((j) => j.status === "active").length,
+    closed: jobs.filter((j) => j.status === "closed").length,
+    expired: jobs.filter((j) => j.status === "expired").length,
   };
 
   const getStatusBadge = (status: string) => {
     const badgeConfig = {
-      pending_approval: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-800",
-        icon: Clock,
-        label: "Pending Review",
-      },
-      approved: {
+      active: {
         bg: "bg-green-100",
         text: "text-green-800",
         icon: CheckCircle2,
-        label: "Approved",
+        label: "Active",
       },
-      published: {
+      closed: {
+        bg: "bg-gray-100",
+        text: "text-gray-500",
+        icon: Clock,
+        label: "Closed",
+      },
+      expired: {
+        bg: "bg-yellow-100",
+        text: "text-yellow-800",
+        icon: AlertCircle,
+        label: "Expired",
+      },
+      draft: {
         bg: "bg-blue-100",
         text: "text-blue-800",
-        icon: CheckCircle2,
-        label: "Live",
-      },
-      rejected: {
-        bg: "bg-red-100",
-        text: "text-red-800",
-        icon: AlertCircle,
-        label: "Rejected",
+        icon: Clock,
+        label: "Draft",
       },
     };
 
     const config =
-      badgeConfig[status as keyof typeof badgeConfig] || badgeConfig.pending_approval;
+      badgeConfig[status as keyof typeof badgeConfig] || badgeConfig.active;
     const Icon = config.icon;
 
     return (
@@ -120,19 +118,19 @@ export default function OrgJobsPage() {
           {[
             { label: "Total Posted", value: stats.total, color: "bg-blue-100 text-blue-700" },
             {
-              label: "Pending Approval",
-              value: stats.pending,
-              color: "bg-yellow-100 text-yellow-700",
-            },
-            {
-              label: "Approved",
-              value: stats.approved,
+              label: "Active",
+              value: stats.active,
               color: "bg-green-100 text-green-700",
             },
             {
-              label: "Rejected",
-              value: stats.rejected,
-              color: "bg-red-100 text-red-700",
+              label: "Closed",
+              value: stats.closed,
+              color: "bg-gray-100 text-gray-500",
+            },
+            {
+              label: "Expired",
+              value: stats.expired,
+              color: "bg-yellow-100 text-yellow-700",
             },
           ].map((stat) => (
             <div key={stat.label} className={`rounded-lg p-4 ${stat.color}`}>
@@ -146,9 +144,9 @@ export default function OrgJobsPage() {
         <div className="flex gap-2 mb-6 bg-white rounded-lg p-1 w-fit border border-gray-200">
           {[
             { label: "All", value: "all" as const },
-            { label: "Pending", value: "pending" as const },
-            { label: "Approved", value: "approved" as const },
-            { label: "Rejected", value: "rejected" as const },
+            { label: "Active", value: "active" as const },
+            { label: "Closed", value: "closed" as const },
+            { label: "Expired", value: "expired" as const },
           ].map((tab) => (
             <button
               key={tab.value}
@@ -193,23 +191,23 @@ export default function OrgJobsPage() {
                 <p className="text-gray-700 text-sm mb-4 line-clamp-2">{job.description}</p>
 
                 {/* Status-Specific Info */}
-                {job.status === "pending_approval" && (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Under Review:</strong> Our admins are reviewing your job posting.
-                      You'll be notified once it's approved or if changes are needed.
+                {job.status === "draft" && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Draft:</strong> This job is not yet published. Complete the details to make it live.
                     </p>
                   </div>
                 )}
 
-                {job.status === "rejected" && job.rejection_feedback && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
-                    <p className="text-sm font-semibold text-red-800 mb-1">Rejection Feedback:</p>
-                    <p className="text-sm text-red-700">{job.rejection_feedback}</p>
+                {job.status === "expired" && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Expired:</strong> This job posting has expired. You can repost it to make it live again.
+                    </p>
                   </div>
                 )}
 
-                {(job.status === "approved" || job.status === "published") && (
+                {job.status === "active" && (
                   <div className="flex items-start gap-4 mb-4">
                     {job.auto_matched_count ? (
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex-1">
@@ -227,7 +225,7 @@ export default function OrgJobsPage() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 pt-4 border-t border-gray-200">
-                  {job.status === "approved" || job.status === "published" ? (
+                  {job.status === "active" ? (
                     <>
                       <button
                         onClick={() => router.push(`/org/jobs/${job.id}`)}
@@ -248,7 +246,7 @@ export default function OrgJobsPage() {
                       disabled
                       className="flex-1 px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-medium cursor-not-allowed"
                     >
-                      Awaiting Approval
+                      {job.status === "draft" ? "Draft" : job.status === "expired" ? "Expired" : "Closed"}
                     </button>
                   )}
                 </div>
